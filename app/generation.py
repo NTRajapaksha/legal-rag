@@ -53,10 +53,14 @@ Keep a professional, objective tone. For every claim, include the exact section 
     schema = GenerationResponse.model_json_schema()
     
     def enforce_strict(s):
+        if not isinstance(s, dict):
+            return
+            
         if "title" in s:
             del s["title"]
         if "default" in s:
             del s["default"]
+            
         if s.get("type") == "object":
             s["additionalProperties"] = False
             if "properties" in s and "section_unconfirmed" in s["properties"]:
@@ -65,12 +69,15 @@ Keep a professional, objective tone. For every claim, include the exact section 
                     s["required"].remove("section_unconfirmed")
             for k, v in s.get("properties", {}).items():
                 enforce_strict(v)
-        elif "items" in s:
+                
+        if "items" in s:
             enforce_strict(s["items"])
-        elif "$defs" in s:
+            
+        if "$defs" in s:
             for k, v in s["$defs"].items():
                 enforce_strict(v)
-        elif "anyOf" in s:
+                
+        if "anyOf" in s:
             for item in s["anyOf"]:
                 enforce_strict(item)
                 

@@ -18,6 +18,7 @@ class QueryResponse(BaseModel):
     citations: list[dict]
     insufficient_context: bool
     failed_citations: list[dict]
+    is_unverified: bool
 
 @app.post("/ingest")
 def ingest():
@@ -37,11 +38,20 @@ def query(body: QueryRequest):
     # 3. Verify
     verified_resp, failed_cits = verify_citations(raw_response, chunks)
     
+    answer_text = verified_resp.answer
+    is_unverified = False
+    
+    # If the LLM didn't refuse, but all citations were stripped (or none were provided), flag it.
+    if not verified_resp.insufficient_context and len(verified_resp.citations) == 0:
+        is_unverified = True
+        answer_text = "[WARNING: This answer could not be verified against the source text and may contain hallucinations.]\n\n" + answer_text
+    
     return QueryResponse(
-        answer=verified_resp.answer,
+        answer=answer_text,
         citations=[c.dict() for c in verified_resp.citations],
         insufficient_context=verified_resp.insufficient_context,
-        failed_citations=failed_cits
+        failed_citations=failed_cits,
+        is_unverified=is_unverified
     )
 
 @app.post("/evaluate")
