@@ -85,20 +85,26 @@ def chunk_document(path: str, doc_id: str) -> list[dict]:
                     print(f"OCR fallback failed: {e}")
                 continue
                 
-            # Column-awareness: group into left/right columns and sort top-to-bottom
-            mid_x = page.width / 2
-            left_col = []
-            right_col = []
-            for line in extracted_lines:
-                if not line["chars"]: continue
-                if line["x0"] > mid_x:
-                    right_col.append(line)
-                else:
-                    left_col.append(line)
-                    
-            left_col.sort(key=lambda l: l["top"])
-            right_col.sort(key=lambda l: l["top"])
-            ordered_lines = left_col + right_col
+            # Column-awareness: Adaptive clustering by x0
+            valid_lines = [l for l in extracted_lines if l["chars"]]
+            valid_lines.sort(key=lambda l: l["x0"])
+            
+            columns = []
+            if valid_lines:
+                current_col = [valid_lines[0]]
+                # Use a 100-point gap threshold to distinguish columns from mere paragraph indentations
+                for line in valid_lines[1:]:
+                    if line["x0"] - current_col[-1]["x0"] > 100:
+                        columns.append(current_col)
+                        current_col = [line]
+                    else:
+                        current_col.append(line)
+                columns.append(current_col)
+                
+            ordered_lines = []
+            for col in columns:
+                col.sort(key=lambda l: l["top"])
+                ordered_lines.extend(col)
             
             for line in ordered_lines:
                 

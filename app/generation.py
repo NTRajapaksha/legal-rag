@@ -7,6 +7,7 @@ class Citation(BaseModel):
     doc_id: str
     section_id: str
     quote: str
+    section_unconfirmed: bool = False
 
 class GenerationResponse(BaseModel):
     model_config = {"extra": "forbid"}
@@ -58,6 +59,10 @@ Keep a professional, objective tone. For every claim, include the exact section 
             del s["default"]
         if s.get("type") == "object":
             s["additionalProperties"] = False
+            if "properties" in s and "section_unconfirmed" in s["properties"]:
+                del s["properties"]["section_unconfirmed"]
+                if "required" in s and "section_unconfirmed" in s["required"]:
+                    s["required"].remove("section_unconfirmed")
             for k, v in s.get("properties", {}).items():
                 enforce_strict(v)
         elif "items" in s:
@@ -66,8 +71,6 @@ Keep a professional, objective tone. For every claim, include the exact section 
             for k, v in s["$defs"].items():
                 enforce_strict(v)
         elif "anyOf" in s:
-            # OpenAI structured outputs doesn't fully support anyOf with null unless specifically formatted, 
-            # but usually it's fine for simple unions. We'll leave it.
             for item in s["anyOf"]:
                 enforce_strict(item)
                 

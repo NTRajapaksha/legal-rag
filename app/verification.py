@@ -15,21 +15,33 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
     failed_citations = []
     
     for cit in response.citations:
-        # Find chunk
-        chunk_text = ""
+        # Find chunk for the entire document
+        doc_chunk_text = ""
+        section_chunk_text = ""
+        
         for c in context_chunks:
             if c["doc_id"] == cit.doc_id:
-                chunk_text += c["text"] + " "
+                doc_chunk_text += c["text"] + " "
+                if cit.section_id in ("", "None") or c.get("section_id") == cit.section_id:
+                    section_chunk_text += c["text"] + " "
                 
-        if not chunk_text:
+        if not doc_chunk_text:
             failed_citations.append({"citation": cit.dict(), "reason": "Document not found in context"})
             continue
             
-        # 1. Fuzzy Quote Match
-        score = fuzz.partial_ratio(cit.quote.lower(), chunk_text.lower())
+        # 1. Fuzzy Quote Match at document level
+        score = fuzz.partial_ratio(cit.quote.lower(), doc_chunk_text.lower())
         if score < 85:
              failed_citations.append({"citation": cit.dict(), "reason": f"Quote mismatch (score: {score})"})
              continue
+             
+        # 1b. Secondary section-level check
+        if section_chunk_text:
+            section_score = fuzz.partial_ratio(cit.quote.lower(), section_chunk_text.lower())
+            if section_score < 85:
+                cit.section_unconfirmed = True
+        else:
+            cit.section_unconfirmed = True
              
         # 2. Entailment check
         gateway_url = os.getenv("AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh/v1")
