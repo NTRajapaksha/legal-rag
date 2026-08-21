@@ -4,9 +4,15 @@ A robust, containerized Legal Contract RAG (Retrieval-Augmented Generation) prot
 
 ## Features
 - **Convention-Agnostic Chunking:** Smart multi-tier heading detection (Layout → Text Patterns → Semantic Fallback) that parses any legal document without hardcoding specific numbering styles.
-- **Hybrid Search Retrieval:** Combines Qdrant dense vector embeddings with an Okapi BM25 sparse index (via Reciprocal Rank Fusion) to ensure exact legal terminology isn't lost. Includes cross-reference resolution.
-- **Strict Hallucination Prevention:** Enforces closed-book JSON generation, fuzzy quote verification against original document chunks, numeric drift detection, and claim entailment checking.
-- **Methodical Evaluation:** Built-in endpoint to evaluate pipeline faithfulness using `ragas` metrics against a curated Q&A dataset.
+- **Robust Sub-Chunking:** Automatically caps excessively large semantic sections at ~400 words to maintain high retrieval precision while accurately preserving nested `parent_section` metadata.
+- **Hybrid Search Retrieval:** Combines Qdrant dense vector embeddings with an Okapi BM25 sparse index (via Reciprocal Rank Fusion) to ensure exact legal terminology isn't lost. BM25 tokenization uses robust regex punctuation stripping and lowercasing for accurate term matching.
+- **Cross-Reference & Defined Term Resolution:** Identifies capitalized legal terms and "Section X.Y" references in retrieved chunks and dynamically pulls those exact definition chunks into the context window to prevent semantic gaps.
+- **Strict Hallucination Prevention:** 
+  - Uses OpenAI's **Strict Structured Outputs** to enforce exact JSON schema adherence.
+  - Generates closed-book answers, heavily penalized against hallucination. Out-of-context queries are gracefully rejected with a strict `"Not enough information to confirm."` response instead of a hallucinated guess.
+  - Citations are double-checked through **fuzzy substring quote verification**, **LLM-based claim entailment checks** (verifying if a quote logically supports the statement), and **numeric drift detection** (ensuring all numbers in the generated answer mathematically match the cited text).
+  - Quote verification is decoupled from LLM metadata hallucinations, searching dynamically across the entire document's context window.
+- **Methodical Evaluation:** Built-in endpoint to evaluate pipeline faithfulness using `ragas` metrics against a curated Q&A dataset of real legal queries.
 
 ## Setup & Configuration
 
