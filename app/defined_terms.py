@@ -8,8 +8,7 @@ def build_defined_terms_index(doc_id: str, full_text: str, chunks: list[dict]) -
     defined_terms = []
     
     # Regex to find: "Term" means / "Term" shall mean / "Term" refers to
-    # E.g., "Brand" means the trademark...
-    pattern = re.compile(r'\"([A-Z][a-zA-Z\s]+)\"\s+(means|shall mean|refers to)', re.IGNORECASE)
+    pattern = re.compile(r'["“”]([A-Z][a-zA-Z\s]+)["“”]\s+(means|shall mean|refers to)', re.IGNORECASE)
     
     matches = pattern.finditer(full_text)
     

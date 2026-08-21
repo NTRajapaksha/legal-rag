@@ -54,13 +54,18 @@ def evaluate():
     total = len(questions)
     passed = 0
     
+    ragas_data = {
+        "question": [],
+        "answer": [],
+        "contexts": []
+    }
+    
     for q in questions:
         # Run through our pipeline
         chunks = hybrid_retrieve(q["question"])
         raw_response = generate_answer(q["question"], chunks)
         verified_resp, failed_cits = verify_citations(raw_response, chunks)
         
-        # Super simple metric: did it refuse correctly, or did it generate verified citations
         is_correct = False
         if q.get("expected_none"):
             is_correct = verified_resp.insufficient_context
@@ -77,9 +82,34 @@ def evaluate():
             "failed_citations": len(failed_cits)
         })
         
+        ragas_data["question"].append(q["question"])
+        ragas_data["answer"].append(verified_resp.answer)
+        ragas_data["contexts"].append([c["text"] for c in chunks])
+        
+    ragas_scores = {}
+    try:
+        from datasets import Dataset
+        from ragas import evaluate as ragas_evaluate
+        from ragas.metrics import faithfulness
+        
+        # Setting up Ragas to use our AI gateway keys
+        os.environ["OPENAI_API_KEY"] = os.getenv("AI_GATEWAY_KEY", "")
+        os.environ["OPENAI_API_BASE"] = os.getenv("AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh/v1")
+        
+        ds = Dataset.from_dict(ragas_data)
+        ragas_result = ragas_evaluate(
+            ds,
+            metrics=[faithfulness]
+        )
+        ragas_scores = ragas_result
+    except Exception as e:
+        print(f"Ragas evaluation failed: {e}")
+        ragas_scores = {"error": str(e)}
+        
     return {
         "accuracy": passed / total if total > 0 else 0,
         "total": total,
+        "ragas_scores": ragas_scores,
         "details": results
     }
 

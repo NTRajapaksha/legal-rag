@@ -42,6 +42,11 @@ def ingest_all():
         # Build defined terms
         full_text = " ".join([c["text"] for c in chunks])
         terms = build_defined_terms_index(doc_id, full_text, chunks)
+        
+        start_idx = len(all_chunks)
+        for t in terms:
+            t["chunk_id"] += start_idx
+            
         all_defined_terms.extend(terms)
         
         all_chunks.extend(chunks)
@@ -85,7 +90,8 @@ def ingest_all():
     )
     
     # Build BM25
-    tokenized_corpus = [doc.split(" ") for doc in texts]
+    import re
+    tokenized_corpus = [re.sub(r'[^\w\s]', '', doc.lower()).split() for doc in texts]
     bm25 = BM25Okapi(tokenized_corpus)
     
     # Save BM25 and metadata locally

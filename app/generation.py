@@ -15,7 +15,7 @@ class GenerationResponse(BaseModel):
 def generate_answer(question: str, context_chunks: list[dict]) -> GenerationResponse:
     if not context_chunks:
         return GenerationResponse(
-            answer="Not found in the provided documents.",
+            answer="Not enough information to confirm.",
             citations=[],
             insufficient_context=True
         )
@@ -35,7 +35,7 @@ def generate_answer(question: str, context_chunks: list[dict]) -> GenerationResp
     multi_doc = len(doc_ids) > 1
     
     system_prompt = """You are a legal assistant. Answer ONLY from the provided context chunks.
-If the answer isn't in the context, set insufficient_context to true and say you cannot find it.
+If the answer isn't in the context, set insufficient_context to true and output EXACTLY: "Not enough information to confirm." Do not attempt to guess or hallucinate an answer.
 Keep a professional, objective tone. For every claim, include the exact section number and a short supporting quote."""
 
     if multi_doc:

@@ -53,7 +53,7 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
     dense_ranked_ids = [hit.payload["chunk_idx"] for hit in dense_results]
     
     # 2. Sparse Leg
-    tokenized_query = question.split(" ")
+    tokenized_query = re.sub(r'[^\w\s]', '', question.lower()).split()
     sparse_scores = bm25.get_scores(tokenized_query)
     
     # Filter sparse scores if doc_filter

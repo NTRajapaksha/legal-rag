@@ -39,8 +39,7 @@ def get_embedding(text: str) -> list[float]:
         return data["data"][0]["embedding"]
     except Exception as e:
         print(f"Embedding failed: {e}")
-        # fallback to 0 vector for resilience in missing key
-        return [0.0] * 1536 
+        raise e
 
 def embed_batch(sentences: list[str]) -> list[list[float]]:
     return [get_embedding(s) for s in sentences]
@@ -63,14 +62,22 @@ def chunk_document(path: str, doc_id: str) -> list[dict]:
         all_sizes = []
         for i, page in enumerate(pdf.pages):
             extracted_lines = page.extract_text_lines()
+            
+            # Very basic OCR fallback placeholder for structure completeness
+            # Multi-column could be done by sorting line["x0"] but for simplicity we rely on stream
             for line in extracted_lines:
                 if not line["chars"]: continue
+                
+                text = line["text"].strip()
+                # Footer stripping
+                if re.match(r"^Source:.*\d{1,2}/\d{1,2}/\d{4}$", text, re.IGNORECASE):
+                    continue
+                if re.match(r"^\s*\d+\s*$", text):
+                    continue
                 
                 is_bold = any("Bold" in c.get("fontname", "") for c in line["chars"])
                 avg_size = statistics.mean(c.get("size", 10) for c in line["chars"])
                 all_sizes.append(avg_size)
-                
-                text = line["text"].strip()
                 
                 lines_data.append({
                     "text": text,
@@ -104,7 +111,20 @@ def chunk_document(path: str, doc_id: str) -> list[dict]:
             if match and match.start() == 0:
                 is_candidate = True
                 match_label = label
-                match_id = match.group(0)
+                raw_match = match.group(0)
+                if label in ("numbered_section", "numbered"):
+                    m = re.search(r'\d+(\.\d+)*', raw_match)
+                    match_id = m.group(0) if m else raw_match
+                elif label == "article_roman":
+                    m = re.search(r'[IVXLC]+', raw_match)
+                    match_id = m.group(0) if m else raw_match
+                elif label == "exhibit":
+                    m = re.search(r'[A-Z0-9]+', raw_match)
+                    match_id = m.group(0) if m else raw_match
+                elif label == "lettered_subclause":
+                    match_id = re.sub(r'[\(\)\.]', '', raw_match)
+                else:
+                    match_id = raw_match
                 break
                 
         if is_candidate:
@@ -152,6 +172,16 @@ def chunk_document(path: str, doc_id: str) -> list[dict]:
              })
         return chunks
 
+    # Helper for finding parent
+    def get_parent_title(curr_idx):
+        if curr_idx == 0: return None
+        curr_id = str(headings[curr_idx].get("section_id", ""))
+        for prev_idx in range(curr_idx - 1, -1, -1):
+            prev_id = str(headings[prev_idx].get("section_id", ""))
+            if len(prev_id) < len(curr_id) and curr_id.startswith(prev_id):
+                return headings[prev_idx]["text"]
+        return headings[curr_idx - 1]["text"]
+
     # Normal Heading-based splitting
     for i in range(len(headings)):
         start_idx = headings[i]["line_idx"]
@@ -161,15 +191,49 @@ def chunk_document(path: str, doc_id: str) -> list[dict]:
         chunk_lines = lines_data[start_idx:end_idx]
         chunk_text = " ".join([l["text"] for l in chunk_lines])
         
-        parent_title = headings[i-1]["text"] if i > 0 else None
+        parent_title = get_parent_title(i)
         
-        chunks.append({
-            "doc_id": doc_id,
-            "section_id": headings[i]["section_id"],
-            "section_title": headings[i]["text"],
-            "parent_section": parent_title,
-            "page_number": headings[i]["page_number"],
-            "text": chunk_text
-        })
+        # Sub-split if chunk is too large (> 400 words ~ 500 tokens)
+        words = chunk_text.split()
+        if len(words) > 400:
+            sentences = split_into_sentences(chunk_text)
+            sub_chunk = []
+            sub_len = 0
+            sub_idx = 1
+            for s in sentences:
+                s_words = s.split()
+                if sub_len + len(s_words) > 400 and sub_chunk:
+                    chunks.append({
+                        "doc_id": doc_id,
+                        "section_id": headings[i]["section_id"],
+                        "section_title": headings[i]["text"] + f" (Part {sub_idx})",
+                        "parent_section": parent_title,
+                        "page_number": headings[i]["page_number"],
+                        "text": " ".join(sub_chunk)
+                    })
+                    sub_chunk = [s]
+                    sub_len = len(s_words)
+                    sub_idx += 1
+                else:
+                    sub_chunk.append(s)
+                    sub_len += len(s_words)
+            if sub_chunk:
+                chunks.append({
+                    "doc_id": doc_id,
+                    "section_id": headings[i]["section_id"],
+                    "section_title": headings[i]["text"] + f" (Part {sub_idx})",
+                    "parent_section": parent_title,
+                    "page_number": headings[i]["page_number"],
+                    "text": " ".join(sub_chunk)
+                })
+        else:
+            chunks.append({
+                "doc_id": doc_id,
+                "section_id": headings[i]["section_id"],
+                "section_title": headings[i]["text"],
+                "parent_section": parent_title,
+                "page_number": headings[i]["page_number"],
+                "text": chunk_text
+            })
         
     return chunks

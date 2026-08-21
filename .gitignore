@@ -21,3 +21,7 @@ qdrant_data/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Documentation (exclude all except README)
+*.md
+!README.md

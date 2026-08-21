@@ -1,5 +1,25 @@
 [
   {
+    "question": "What happens if a party materially breaches the Joint Venture Agreement?",
+    "expected_none": false
+  },
+  {
+    "question": "What is the term of the Joint Venture Agreement?",
+    "expected_none": false
+  },
+  {
+    "question": "What constitutes a 'Permitted Activity' under the Trademark License Agreement?",
+    "expected_none": false
+  },
+  {
+    "question": "Does the Trademark License Agreement allow sublicensing?",
+    "expected_none": false
+  },
+  {
+    "question": "According to the Freecook Hosting Agreement, how is uptime calculated?",
+    "expected_none": false
+  },
+  {
     "question": "What is the governing law of the Freecook Hosting Agreement?",
     "expected_none": false
   },
@@ -10,5 +30,13 @@
   {
     "question": "Does the Transportation Agreement mention Elon Musk?",
     "expected_none": true
+  },
+  {
+    "question": "Under the Penntex Midstream Partners agreement, what are the delivery point pressures?",
+    "expected_none": false
+  },
+  {
+    "question": "What is the fee schedule for the Bellring Brands Manufacturing Agreement?",
+    "expected_none": false
   }
 ]
