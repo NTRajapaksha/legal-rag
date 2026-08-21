@@ -57,9 +57,10 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
                 failed_citations.append({"citation": cit.dict(), "reason": "Entailment failed"})
                 continue
         except Exception as e:
-            print(f"Entailment check failed: {e}")
-            # If the check fails (e.g. network error), we might accept or reject. Accept for robustness.
-            pass
+            print(f"Entailment check failed (network/API error): {e}")
+            # Fail closed for zero-hallucination guarantee
+            failed_citations.append({"citation": cit.dict(), "reason": "Entailment API failure"})
+            continue
         
         verified_citations.append(cit)
         

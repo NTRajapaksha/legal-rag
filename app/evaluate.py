@@ -4,10 +4,10 @@ import time
 
 def evaluate_pipeline():
     """
-    Dummy/simplified evaluation wrapper. 
-    In a full setup, this would invoke `ragas` metrics over the dataset.
-    For this prototype API, we just run through questions and calculate 
-    citation accuracy and refusal accuracy.
+    Evaluation set loader.
+    The actual `ragas` metrics execution (faithfulness) and pipeline routing
+    is handled downstream in `main.py`'s `/evaluate` endpoint to avoid
+    circular imports. This function just safely loads the dataset.
     """
     eval_path = "/app/data/eval_set/questions.json"
     if not os.path.exists(eval_path):

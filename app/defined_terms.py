@@ -7,12 +7,16 @@ def build_defined_terms_index(doc_id: str, full_text: str, chunks: list[dict]) -
     """
     defined_terms = []
     
-    # Regex to find: "Term" means / "Term" shall mean / "Term" refers to
-    pattern = re.compile(r'["“”]([A-Z][a-zA-Z\s]+)["“”]\s+(means|shall mean|refers to)', re.IGNORECASE)
+    # Pattern 1: "Term" means / "Term" shall mean / "Term" refers to
+    pattern_means = re.compile(r'["“”]([A-Z][a-zA-Z\s]+)["“”]\s+(means|shall mean|refers to)', re.IGNORECASE)
     
-    matches = pattern.finditer(full_text)
+    # Pattern 2: (collectively, the "Term") or (the "Term") or ("Term")
+    pattern_paren = re.compile(r'\(\s*(?:hereinafter(?: referred to as)?|collectively)?\s*(?:,?)\s*(?:the\s+)?["“”]([A-Z][a-zA-Z0-9\s]+)["“”]\s*\)', re.IGNORECASE)
     
-    for match in matches:
+    matches_means = pattern_means.finditer(full_text)
+    matches_paren = pattern_paren.finditer(full_text)
+    
+    for match in list(matches_means) + list(matches_paren):
         term = match.group(1).strip()
         # Find which chunk contains this match based on substring index or simple text search
         # To simplify, we just find the first chunk that contains the definition text around this term.

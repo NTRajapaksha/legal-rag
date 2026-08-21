@@ -63,10 +63,44 @@ def chunk_document(path: str, doc_id: str) -> list[dict]:
         for i, page in enumerate(pdf.pages):
             extracted_lines = page.extract_text_lines()
             
-            # Very basic OCR fallback placeholder for structure completeness
-            # Multi-column could be done by sorting line["x0"] but for simplicity we rely on stream
+            if not extracted_lines:
+                try:
+                    import pytesseract
+                    from pdf2image import convert_from_path
+                    images = convert_from_path(path, first_page=i+1, last_page=i+1)
+                    if images:
+                        ocr_text = pytesseract.image_to_string(images[0])
+                        for ocr_line in ocr_text.split('\n'):
+                            t = ocr_line.strip()
+                            if t:
+                                lines_data.append({
+                                    "text": t,
+                                    "is_bold": False,
+                                    "avg_size": 10,
+                                    "page_number": i + 1,
+                                    "is_all_caps": t.isupper() and len(re.sub(r'[^A-Z]', '', t)) > 5,
+                                    "length": len(t)
+                                })
+                except Exception as e:
+                    print(f"OCR fallback failed: {e}")
+                continue
+                
+            # Column-awareness: group into left/right columns and sort top-to-bottom
+            mid_x = page.width / 2
+            left_col = []
+            right_col = []
             for line in extracted_lines:
                 if not line["chars"]: continue
+                if line["x0"] > mid_x:
+                    right_col.append(line)
+                else:
+                    left_col.append(line)
+                    
+            left_col.sort(key=lambda l: l["top"])
+            right_col.sort(key=lambda l: l["top"])
+            ordered_lines = left_col + right_col
+            
+            for line in ordered_lines:
                 
                 text = line["text"].strip()
                 # Footer stripping
