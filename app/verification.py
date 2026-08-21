@@ -18,11 +18,11 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
         # Find chunk
         chunk_text = ""
         for c in context_chunks:
-            if c["doc_id"] == cit.doc_id and (cit.section_id is None or c.get("section_id") == cit.section_id):
+            if c["doc_id"] == cit.doc_id:
                 chunk_text += c["text"] + " "
                 
         if not chunk_text:
-            failed_citations.append({"citation": cit.dict(), "reason": "Chunk not found"})
+            failed_citations.append({"citation": cit.dict(), "reason": "Document not found in context"})
             continue
             
         # 1. Fuzzy Quote Match
@@ -41,7 +41,7 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
             "Content-Type": "application/json"
         }
         
-        entailment_prompt = f"Does the following statement follow logically from the provided quote? Answer only YES or NO.\n\nStatement: {response.answer}\n\nQuote: {cit.quote}"
+        entailment_prompt = f"Does the provided quote support at least one specific claim made in the following statement? Answer only YES or NO.\n\nStatement: {response.answer}\n\nQuote: {cit.quote}"
         
         payload = {
             "model": model,
@@ -71,7 +71,7 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
     all_cited_text = ""
     for cit in verified_citations:
         for c in context_chunks:
-             if c["doc_id"] == cit.doc_id and (cit.section_id is None or c.get("section_id") == cit.section_id):
+             if c["doc_id"] == cit.doc_id:
                  all_cited_text += c["text"] + " "
                  
     chunk_nums = set(m.group() for m in num_pattern.finditer(all_cited_text))

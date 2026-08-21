@@ -44,12 +44,21 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
             must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_filter))]
         )
         
-    dense_results = client.search(
-        collection_name=collection_name,
-        query_vector=query_vector,
-        query_filter=search_filter,
-        limit=20
-    )
+    try:
+        dense_results = client.query_points(
+            collection_name=collection_name,
+            query=query_vector,
+            query_filter=search_filter,
+            limit=20
+        ).points
+    except AttributeError:
+        # Fallback for older qdrant-client versions
+        dense_results = client.search(
+            collection_name=collection_name,
+            query_vector=query_vector,
+            query_filter=search_filter,
+            limit=20
+        )
     dense_ranked_ids = [hit.payload["chunk_idx"] for hit in dense_results]
     
     # 2. Sparse Leg

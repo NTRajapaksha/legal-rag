@@ -27,10 +27,11 @@ def ingest_all():
     all_defined_terms = []
     
     # Process all PDFs in data/contracts
-    pdf_paths = glob.glob("/app/data/contracts/*.pdf")
+    import fnmatch
+    pdf_paths = [f for f in glob.glob("/app/data/contracts/*") if f.lower().endswith(".pdf")]
     if not pdf_paths:
         # Fallback for local testing outside docker
-        pdf_paths = glob.glob("./data/contracts/*.pdf")
+        pdf_paths = [f for f in glob.glob("./data/contracts/*") if f.lower().endswith(".pdf")]
         
     for path in pdf_paths:
         doc_id = os.path.basename(path).replace(".pdf", "")

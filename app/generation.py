@@ -3,11 +3,13 @@ import httpx
 from pydantic import BaseModel, Field
 
 class Citation(BaseModel):
+    model_config = {"extra": "forbid"}
     doc_id: str
-    section_id: str | None
+    section_id: str
     quote: str
 
 class GenerationResponse(BaseModel):
+    model_config = {"extra": "forbid"}
     answer: str
     citations: list[Citation]
     insufficient_context: bool
@@ -48,6 +50,28 @@ Keep a professional, objective tone. For every claim, include the exact section 
     
     # Use OpenAI function calling / structured output format
     schema = GenerationResponse.model_json_schema()
+    
+    def enforce_strict(s):
+        if "title" in s:
+            del s["title"]
+        if "default" in s:
+            del s["default"]
+        if s.get("type") == "object":
+            s["additionalProperties"] = False
+            for k, v in s.get("properties", {}).items():
+                enforce_strict(v)
+        elif "items" in s:
+            enforce_strict(s["items"])
+        elif "$defs" in s:
+            for k, v in s["$defs"].items():
+                enforce_strict(v)
+        elif "anyOf" in s:
+            # OpenAI structured outputs doesn't fully support anyOf with null unless specifically formatted, 
+            # but usually it's fine for simple unions. We'll leave it.
+            for item in s["anyOf"]:
+                enforce_strict(item)
+                
+    enforce_strict(schema)
     
     payload = {
         "model": model,
