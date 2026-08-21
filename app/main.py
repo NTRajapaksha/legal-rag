@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
@@ -115,7 +116,13 @@ def evaluate():
             ds,
             metrics=[faithfulness]
         )
-        ragas_scores = ragas_result
+        
+        # Convert Result object and numpy floats to standard Python dict/floats for FastAPI serialization
+        for k, v in dict(ragas_result).items():
+            try:
+                ragas_scores[k] = float(v)
+            except (TypeError, ValueError):
+                ragas_scores[k] = str(v)
     except Exception as e:
         print(f"Ragas evaluation failed: {e}")
         ragas_scores = {"error": str(e)}
