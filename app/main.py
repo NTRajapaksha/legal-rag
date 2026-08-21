@@ -77,22 +77,27 @@ def evaluate():
         raw_response = generate_answer(q["question"], chunks)
         verified_resp, failed_cits = verify_citations(raw_response, chunks)
         
-        is_correct = False
+        status = "wrong"
         if q.get("expected_none"):
-            is_correct = verified_resp.insufficient_context
+            if verified_resp.insufficient_context:
+                status = "correct"
         else:
-            is_correct = len(verified_resp.citations) > 0 and not verified_resp.insufficient_context
+            if not verified_resp.insufficient_context:
+                if len(verified_resp.citations) > 0:
+                    status = "correct"
+                else:
+                    status = "flagged_unverified"
             
         answer_text = verified_resp.answer
         if not verified_resp.insufficient_context and len(verified_resp.citations) == 0:
             answer_text = "[WARNING: This answer could not be verified against the source text and may contain hallucinations.]\n\n" + answer_text
             
-        if is_correct:
+        if status == "correct":
             passed += 1
             
         results.append({
             "question": q["question"],
-            "correct": is_correct,
+            "status": status,
             "answer": answer_text,
             "failed_citations": len(failed_cits)
         })

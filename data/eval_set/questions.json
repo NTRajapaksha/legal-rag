@@ -38,5 +38,41 @@
   {
     "question": "What is the fee schedule for the Bellring Brands Manufacturing Agreement?",
     "expected_none": false
+  },
+  {
+    "question": "Who is the licensor in the Morgan Stanley Trademark License Agreement?",
+    "expected_none": false
+  },
+  {
+    "question": "Does the Freecook Hosting Agreement include SEO services?",
+    "expected_none": true
+  },
+  {
+    "question": "What happens if FreeCook misses a milestone?",
+    "expected_none": true
+  },
+  {
+    "question": "What is the name of the Joint Venture formed in the Joint Venture Agreement?",
+    "expected_none": false
+  },
+  {
+    "question": "Who is the Customer in the Penntex Midstream Transportation Agreement?",
+    "expected_none": false
+  },
+  {
+    "question": "Who is the Transporter in the Penntex Midstream Transportation Agreement?",
+    "expected_none": false
+  },
+  {
+    "question": "Does the Bellring Brands Manufacturing Agreement mention climate change?",
+    "expected_none": true
+  },
+  {
+    "question": "What is the role of Mitchell's Web Advance, PLC in the Freecook Hosting Agreement?",
+    "expected_none": false
+  },
+  {
+    "question": "Who handles marketing for the Morgan Stanley Trademark License Agreement?",
+    "expected_none": true
   }
 ]

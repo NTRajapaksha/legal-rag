@@ -30,16 +30,21 @@ def get_embedding(text: str) -> list[float]:
         "model": model
     }
     
-    # Try embedding. If it fails, return random vector for prototype fallback,
-    # or raise exception.
-    try:
-        response = httpx.post(f"{gateway_url}/embeddings", headers=headers, json=payload, timeout=30.0)
-        response.raise_for_status()
-        data = response.json()
-        return data["data"][0]["embedding"]
-    except Exception as e:
-        print(f"Embedding failed: {e}")
-        raise e
+    # Implement exponential backoff retry
+    max_retries = 3
+    import time
+    for attempt in range(max_retries):
+        try:
+            response = httpx.post(f"{gateway_url}/embeddings", headers=headers, json=payload, timeout=30.0)
+            response.raise_for_status()
+            data = response.json()
+            return data["data"][0]["embedding"]
+        except Exception as e:
+            print(f"Embedding failed (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)  # 1s, 2s
+            else:
+                raise e
 
 def embed_batch(sentences: list[str]) -> list[list[float]]:
     return [get_embedding(s) for s in sentences]
