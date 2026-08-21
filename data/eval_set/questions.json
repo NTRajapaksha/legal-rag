@@ -1,7 +1,7 @@
 [
   {
     "question": "What happens if a party materially breaches the Joint Venture Agreement?",
-    "expected_none": false
+    "expected_none": true
   },
   {
     "question": "What is the term of the Joint Venture Agreement?",
@@ -17,11 +17,11 @@
   },
   {
     "question": "According to the Freecook Hosting Agreement, how is uptime calculated?",
-    "expected_none": false
+    "expected_none": true
   },
   {
     "question": "What is the governing law of the Freecook Hosting Agreement?",
-    "expected_none": false
+    "expected_none": true
   },
   {
     "question": "How many days notice are required for termination in the Joint Venture Agreement?",

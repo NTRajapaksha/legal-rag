@@ -13,3 +13,5 @@ httpx
 python-dotenv
 ragas
 datasets
+langchain-community
+langchain-openai
