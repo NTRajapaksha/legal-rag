@@ -1,82 +1,102 @@
 [
   {
     "question": "What happens if a party materially breaches the Joint Venture Agreement?",
-    "expected_none": true
+    "expected_none": true,
+    "doc_filter": "JOINT VENTURE"
   },
   {
     "question": "What is the term of the Joint Venture Agreement?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "JOINT VENTURE"
   },
   {
     "question": "What constitutes a 'Permitted Activity' under the Trademark License Agreement?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "Trademark"
   },
   {
     "question": "Does the Trademark License Agreement allow sublicensing?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "Trademark"
   },
   {
     "question": "According to the Freecook Hosting Agreement, how is uptime calculated?",
-    "expected_none": true
+    "expected_none": true,
+    "doc_filter": "Freecook"
   },
   {
     "question": "What is the governing law of the Freecook Hosting Agreement?",
-    "expected_none": true
+    "expected_none": true,
+    "doc_filter": "Freecook"
   },
   {
     "question": "How many days notice are required for termination in the Joint Venture Agreement?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "JOINT VENTURE"
   },
   {
     "question": "Does the Transportation Agreement mention Elon Musk?",
-    "expected_none": true
+    "expected_none": true,
+    "doc_filter": "Transportation"
   },
   {
     "question": "Under the Penntex Midstream Partners agreement, what are the delivery point pressures?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "Penntex"
   },
   {
     "question": "What is the fee schedule for the Bellring Brands Manufacturing Agreement?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "Bellring"
   },
   {
     "question": "Who is the licensor in the Morgan Stanley Trademark License Agreement?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "Morgan"
   },
   {
     "question": "Does the Freecook Hosting Agreement include SEO services?",
-    "expected_none": true
+    "expected_none": true,
+    "doc_filter": "Freecook"
   },
   {
     "question": "What happens if FreeCook misses a milestone?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "Freecook"
   },
   {
     "question": "What is the name of the Joint Venture formed in the Joint Venture Agreement?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "JOINT VENTURE"
   },
   {
     "question": "Who is the Customer in the Penntex Midstream Transportation Agreement?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "Penntex"
   },
   {
     "question": "Who is the Transporter in the Penntex Midstream Transportation Agreement?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "Penntex"
   },
   {
     "question": "Does the Bellring Brands Manufacturing Agreement mention climate change?",
-    "expected_none": true
+    "expected_none": true,
+    "doc_filter": "Bellring"
   },
   {
     "question": "What is the role of Mitchell's Web Advance, PLC in the Freecook Hosting Agreement?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "Freecook"
   },
   {
     "question": "Who handles marketing for the Morgan Stanley Trademark License Agreement?",
-    "expected_none": true
+    "expected_none": true,
+    "doc_filter": "Morgan"
   },
   {
     "question": "Does the Joint Venture Agreement specify a governing law?",
-    "expected_none": false
+    "expected_none": false,
+    "doc_filter": "JOINT VENTURE"
   }
 ]

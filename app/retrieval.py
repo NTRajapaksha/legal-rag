@@ -37,29 +37,28 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
             
     # 1. Dense Leg
     query_vector = get_embedding(question)
-    search_filter = None
-    if doc_filter:
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
-        search_filter = Filter(
-            must=[FieldCondition(key="doc_id", match=MatchValue(value=doc_filter))]
-        )
-        
+    
     try:
         dense_results = client.query_points(
             collection_name=collection_name,
             query=query_vector,
-            query_filter=search_filter,
-            limit=20
+            limit=100
         ).points
     except AttributeError:
         # Fallback for older qdrant-client versions
         dense_results = client.search(
             collection_name=collection_name,
             query_vector=query_vector,
-            query_filter=search_filter,
-            limit=20
+            limit=100
         )
-    dense_ranked_ids = [hit.payload["chunk_idx"] for hit in dense_results]
+        
+    dense_ranked_ids = []
+    for hit in dense_results:
+        if doc_filter and doc_filter.lower() not in hit.payload["doc_id"].lower():
+            continue
+        dense_ranked_ids.append(hit.payload["chunk_idx"])
+        if len(dense_ranked_ids) == 20:
+            break
     
     # 2. Sparse Leg
     tokenized_query = re.sub(r'[^\w\s]', '', question.lower()).split()
@@ -68,7 +67,7 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
     # Filter sparse scores if doc_filter
     if doc_filter:
         for i, c in enumerate(all_chunks):
-            if c["doc_id"] != doc_filter:
+            if doc_filter.lower() not in c["doc_id"].lower():
                 sparse_scores[i] = -1.0
                 
     sparse_ranked_ids = sorted(range(len(sparse_scores)), key=lambda i: sparse_scores[i], reverse=True)[:20]

@@ -42,8 +42,11 @@ def query(body: QueryRequest):
     answer_text = verified_resp.answer
     is_unverified = False
     
-    # If the LLM didn't refuse, but all citations were stripped (or none were provided), flag it.
-    if not verified_resp.insufficient_context and len(verified_resp.citations) == 0:
+    # Force canonical string on refusal to prevent LLM chatty behavior
+    if verified_resp.insufficient_context:
+        answer_text = "Not enough information to confirm."
+        verified_resp.citations = []
+    elif len(verified_resp.citations) == 0:
         is_unverified = True
         answer_text = "[WARNING: This answer could not be verified against the source text and may contain hallucinations.]\n\n" + answer_text
     
@@ -90,7 +93,10 @@ def evaluate():
                     status = "flagged_unverified"
             
         answer_text = verified_resp.answer
-        if not verified_resp.insufficient_context and len(verified_resp.citations) == 0:
+        if verified_resp.insufficient_context:
+            answer_text = "Not enough information to confirm."
+            verified_resp.citations = []
+        elif len(verified_resp.citations) == 0:
             answer_text = "[WARNING: This answer could not be verified against the source text and may contain hallucinations.]\n\n" + answer_text
             
         if status == "correct":
