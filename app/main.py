@@ -82,18 +82,22 @@ def evaluate():
         else:
             is_correct = len(verified_resp.citations) > 0 and not verified_resp.insufficient_context
             
+        answer_text = verified_resp.answer
+        if not verified_resp.insufficient_context and len(verified_resp.citations) == 0:
+            answer_text = "[WARNING: This answer could not be verified against the source text and may contain hallucinations.]\n\n" + answer_text
+            
         if is_correct:
             passed += 1
             
         results.append({
             "question": q["question"],
             "correct": is_correct,
-            "answer": verified_resp.answer,
+            "answer": answer_text,
             "failed_citations": len(failed_cits)
         })
         
         ragas_data["question"].append(q["question"])
-        ragas_data["answer"].append(verified_resp.answer)
+        ragas_data["answer"].append(answer_text)
         ragas_data["contexts"].append([c["text"] for c in chunks])
         
     ragas_scores = {}
