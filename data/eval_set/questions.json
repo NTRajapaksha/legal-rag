@@ -49,7 +49,7 @@
   },
   {
     "question": "What happens if FreeCook misses a milestone?",
-    "expected_none": true
+    "expected_none": false
   },
   {
     "question": "What is the name of the Joint Venture formed in the Joint Venture Agreement?",
@@ -74,5 +74,9 @@
   {
     "question": "Who handles marketing for the Morgan Stanley Trademark License Agreement?",
     "expected_none": true
+  },
+  {
+    "question": "Does the Joint Venture Agreement specify a governing law?",
+    "expected_none": false
   }
 ]

@@ -64,6 +64,7 @@ def evaluate():
     results = []
     total = len(questions)
     passed = 0
+    flagged = 0
     
     ragas_data = {
         "question": [],
@@ -73,7 +74,7 @@ def evaluate():
     
     for q in questions:
         # Run through our pipeline
-        chunks = hybrid_retrieve(q["question"])
+        chunks = hybrid_retrieve(q["question"], q.get("doc_filter"))
         raw_response = generate_answer(q["question"], chunks)
         verified_resp, failed_cits = verify_citations(raw_response, chunks)
         
@@ -94,6 +95,8 @@ def evaluate():
             
         if status == "correct":
             passed += 1
+        elif status == "flagged_unverified":
+            flagged += 1
             
         results.append({
             "question": q["question"],
@@ -134,6 +137,7 @@ def evaluate():
         
     return {
         "accuracy": passed / total if total > 0 else 0,
+        "guardrail_success_rate": (passed + flagged) / total if total > 0 else 0,
         "total": total,
         "ragas_scores": ragas_scores,
         "details": results
