@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+pydantic
+pdfplumber
+pytesseract
+pdf2image
+qdrant-client
+rank-bm25
+rapidfuzz
+numpy
+nltk
+httpx
+python-dotenv
+ragas
+datasets

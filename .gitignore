@@ -1,0 +1,23 @@
+# Environments
+.env
+venv/
+env/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Data and Vector DB
+data/bm25_index.pkl
+data/chunks.json
+data/defined_terms.json
+data/contracts/*.pdf
+data/contracts/*.PDF
+qdrant_data/
+
+# OS generated files
+.DS_Store
+Thumbs.db
