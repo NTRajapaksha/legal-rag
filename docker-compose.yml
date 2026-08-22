@@ -11,7 +11,9 @@ services:
     environment:
       - QDRANT_URL=http://qdrant:6333
     depends_on: [qdrant]
-    volumes: ["./data:/app/data"]
+    volumes:
+      - "./data:/app/data"
+      - "./app:/app/app"
 
 volumes:
   qdrant_data:

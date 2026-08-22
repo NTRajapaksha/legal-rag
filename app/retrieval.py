@@ -15,7 +15,7 @@ def rrf(dense_ranked_ids, sparse_ranked_ids, k=60):
         scores[cid] += 1 / (k + rank + 1)
     return sorted(scores.items(), key=lambda x: -x[1])
 
-def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
+def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 15):
     qdrant_url = os.getenv("QDRANT_URL", "http://qdrant:6333")
     client = QdrantClient(url=qdrant_url)
     collection_name = "contracts"
@@ -63,13 +63,14 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
 
     # 1. Dense Leg
     query_vector = get_embedding(question)
+    dense_fetch_limit = 25 if doc_filter else 20
     
     try:
         dense_results = client.query_points(
             collection_name=collection_name,
             query=query_vector,
             query_filter=query_filter,
-            limit=20
+            limit=dense_fetch_limit
         ).points
     except AttributeError:
         # Fallback for older qdrant-client versions
@@ -77,10 +78,10 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
             collection_name=collection_name,
             query_vector=query_vector,
             query_filter=query_filter,
-            limit=20
+            limit=dense_fetch_limit
         )
         
-    dense_ranked_ids = [hit.payload["chunk_idx"] for hit in dense_results][:20]
+    dense_ranked_ids = [hit.payload["chunk_idx"] for hit in dense_results][:dense_fetch_limit]
     
     # 2. Sparse Leg
     tokenized_query = re.sub(r'[^\w\s]', '', question.lower()).split()
@@ -92,11 +93,12 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
             if doc_filter.lower() not in c["doc_id"].lower():
                 sparse_scores[i] = -1.0
                 
-    sparse_ranked_ids = sorted(range(len(sparse_scores)), key=lambda i: sparse_scores[i], reverse=True)[:20]
+    sparse_ranked_ids = sorted(range(len(sparse_scores)), key=lambda i: sparse_scores[i], reverse=True)[:dense_fetch_limit]
     
     # 3. RRF
+    effective_top_k = 20 if doc_filter else top_k
     fused = rrf(dense_ranked_ids, sparse_ranked_ids)
-    top_chunk_indices = [cid for cid, score in fused[:top_k]]
+    top_chunk_indices = [cid for cid, score in fused[:effective_top_k]]
     
     # 4. Resolve cross references & defined terms
     retrieved_chunks = [all_chunks[i] for i in top_chunk_indices]

@@ -43,9 +43,14 @@ def query(body: QueryRequest):
     is_unverified = False
     
     # Force canonical string on refusal to prevent LLM chatty behavior
-    if verified_resp.insufficient_context:
+    negative_phrases = ["no information provided", "not enough information", "does not contain", "no mention of", "cannot find"]
+    is_pure_negative = len(verified_resp.citations) == 0 and any(p in answer_text.lower() for p in negative_phrases)
+
+    if verified_resp.insufficient_context or is_pure_negative:
         answer_text = "Not enough information to confirm."
         verified_resp.citations = []
+        verified_resp.insufficient_context = True
+        is_unverified = False
     elif len(verified_resp.citations) == 0:
         is_unverified = True
         answer_text = "[WARNING: This answer could not be verified against the source text and may contain hallucinations.]\n\n" + answer_text
@@ -81,6 +86,11 @@ def evaluate():
         raw_response = generate_answer(q["question"], chunks)
         verified_resp, failed_cits = verify_citations(raw_response, chunks)
         
+        answer_text = verified_resp.answer
+        is_pure_negative = len(verified_resp.citations) == 0 and any(p in answer_text.lower() for p in negative_phrases)
+        if is_pure_negative:
+            verified_resp.insufficient_context = True
+
         status = "wrong"
         if q.get("expected_none"):
             if verified_resp.insufficient_context:
@@ -92,7 +102,6 @@ def evaluate():
                 else:
                     status = "flagged_unverified"
             
-        answer_text = verified_resp.answer
         if verified_resp.insufficient_context:
             answer_text = "Not enough information to confirm."
             verified_resp.citations = []

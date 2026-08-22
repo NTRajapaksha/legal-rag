@@ -29,20 +29,38 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
             failed_citations.append({"citation": cit.dict(), "reason": "Document not found in context"})
             continue
             
-        # 1. Fuzzy Quote Match at document level
-        score = fuzz.partial_ratio(cit.quote.lower(), doc_chunk_text.lower())
-        if score < 85:
-             failed_citations.append({"citation": cit.dict(), "reason": f"Quote mismatch (score: {score})"})
-             continue
-             
+        # 1. Fuzzy Quote Match at document level (support ellipsis-separated segments)
+        quote_segments = [seg.strip() for seg in re.split(r'\s*(?:\.\.\.|\…)\s*', cit.quote) if seg.strip()]
+        if not quote_segments:
+            failed_citations.append({"citation": cit.dict(), "reason": "Empty quote"})
+            continue
+            
+        doc_matches = []
+        for seg in quote_segments:
+            if len(seg) < 4:
+                continue
+            seg_score = fuzz.partial_ratio(seg.lower(), doc_chunk_text.lower())
+            doc_matches.append(seg_score >= 85)
+            
+        if not doc_matches or not all(doc_matches):
+            score = fuzz.partial_ratio(cit.quote.lower(), doc_chunk_text.lower())
+            if score < 85:
+                failed_citations.append({"citation": cit.dict(), "reason": f"Quote mismatch (score: {score})"})
+                continue
+              
         # 1b. Secondary section-level check
         if section_chunk_text:
-            section_score = fuzz.partial_ratio(cit.quote.lower(), section_chunk_text.lower())
-            if section_score < 85:
+            sec_matches = []
+            for seg in quote_segments:
+                if len(seg) < 4:
+                    continue
+                sec_score = fuzz.partial_ratio(seg.lower(), section_chunk_text.lower())
+                sec_matches.append(sec_score >= 85)
+            if not sec_matches or not all(sec_matches):
                 cit.section_unconfirmed = True
         else:
             cit.section_unconfirmed = True
-             
+              
         # 2. Entailment check
         gateway_url = os.getenv("AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh/v1")
         key = os.getenv("AI_GATEWAY_KEY", "")
@@ -76,17 +94,21 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
         
         verified_citations.append(cit)
         
-    # 3. Exact numeric guard across the entire answer
+    # 3. Exact numeric guard across the entire answer (excluding list enumerations and section markers)
     num_pattern = re.compile(r'\b\d+(\.\d+)?\b')
-    ans_nums = set(m.group() for m in num_pattern.finditer(response.answer))
+    clean_ans = re.sub(r'(?m)^\s*\d+[\.\)]\s*', ' ', response.answer)
+    clean_ans = re.sub(r'Section\s+\d+(\.\d+)*', ' ', clean_ans, flags=re.IGNORECASE)
+    ans_nums = set(m.group() for m in num_pattern.finditer(clean_ans))
     
-    # Collect all text from all verified cited chunks
+    # Collect all text and section_ids from all verified cited chunks
     all_cited_text = ""
     for cit in verified_citations:
+        if cit.section_id:
+            all_cited_text += cit.section_id + " "
         for c in context_chunks:
              if c["doc_id"] == cit.doc_id:
                  all_cited_text += c["text"] + " "
-                 
+                  
     chunk_nums = set(m.group() for m in num_pattern.finditer(all_cited_text))
     
     numeric_drift = False
