@@ -39,12 +39,13 @@ def generate_answer(question: str, context_chunks: list[dict]) -> GenerationResp
     
     system_prompt = """You are a legal assistant. Answer ONLY from the provided context chunks.
 Rules:
-1. If ANY part of the question can be answered from the context chunks, you MUST answer the supported part(s) with exact section citations, explicitly note for the unsupported part(s) ("There is no information provided in the agreement regarding [unsupported part]"), and set insufficient_context to FALSE.
-2. ONLY set insufficient_context to TRUE and output EXACTLY "Not enough information to confirm." if NONE of the question can be answered from the context.
-3. Do not attempt to guess or hallucinate an answer. Keep a professional, objective tone. For every claim, include the exact section number and a short supporting quote."""
+1. When synthesizing or answering across multiple documents, label each agreement cleanly as "[Parties/Entity] [Agreement Type] ([Year])" (e.g. 'Morgan Stanley Trademark License Agreement (2019)', 'Bellring Brands Manufacturing Agreement (2017)', 'Penntex Midstream Transportation Agreement (2015)') to ensure unambiguous identification across similar contract types.
+2. If ANY part of the question can be answered from the context chunks, you MUST answer the supported part(s) with exact section citations, explicitly note for the unsupported part(s) ("There is no information provided in the agreement regarding [unsupported part]"), and set insufficient_context to FALSE.
+3. ONLY set insufficient_context to TRUE and output EXACTLY "Not enough information to confirm." if NONE of the question can be answered from the context.
+4. Do not attempt to guess or hallucinate an answer. Keep a professional, objective tone. For every claim, include the exact section number and a short supporting quote."""
 
     if multi_doc:
-        system_prompt += "\nAnswer per-document (e.g. 'Contract A: ... Contract B: ...') unless all sources agree."
+        system_prompt += "\nAnswer per-document (e.g. 'Trademark License Agreement: ... Transportation Agreement: ...') unless all sources agree."
         
     headers = {
         "Authorization": f"Bearer {key}",

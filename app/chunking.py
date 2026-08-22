@@ -7,11 +7,11 @@ import json
 import numpy as np
 
 HEADING_LABEL_PATTERNS = [
-    (r"Section\s+\d+(\.\d+)*", "numbered_section"),
-    (r"ARTICLE\s+[IVXLC]+", "article_roman"),
-    (r"^\d+(\.\d+)*\.", "numbered"),
-    (r"EXHIBIT|SCHEDULE|ANNEX|APPENDIX\s+[A-Z0-9]+", "exhibit"),
-    (r"^\([a-z]\)|^[A-Z]\.", "lettered_subclause"),
+    (r"(?i)^Section\s+(\d+(?:\.\d+)*)\b", "numbered_section"),
+    (r"(?i)^Article\s+([IVXLCDM]+)\b", "article_roman"),
+    (r"^(\d+(?:\.\d+)*)\.\s+", "numbered"),
+    (r"(?i)^(?:EXHIBIT|SCHEDULE|ANNEX|APPENDIX)\s+([A-Z0-9]+)\b", "exhibit"),
+    (r"^(?:\(([a-zA-Z]|\d{1,2}|[ivxlcIVXLC]+)\)|([A-Z])\.)\s+", "lettered_subclause"),
 ]
 
 def get_embedding(text: str) -> list[float]:
@@ -157,17 +157,15 @@ def chunk_document(path: str, doc_id: str) -> list[dict]:
                 is_candidate = True
                 match_label = label
                 raw_match = match.group(0)
-                if label in ("numbered_section", "numbered"):
-                    m = re.search(r'\d+(\.\d+)*', raw_match)
-                    match_id = m.group(0) if m else raw_match
-                elif label == "article_roman":
-                    m = re.search(r'[IVXLC]+', raw_match)
-                    match_id = m.group(0) if m else raw_match
+                captured = next((g for g in match.groups() if g is not None), None)
+                if label == "article_roman":
+                    match_id = f"Article {captured.upper()}" if captured else raw_match
+                elif label in ("numbered_section", "numbered"):
+                    match_id = captured if captured else raw_match
                 elif label == "exhibit":
-                    m = re.search(r'[A-Z0-9]+', raw_match)
-                    match_id = m.group(0) if m else raw_match
+                    match_id = f"Exhibit {captured.upper()}" if captured else raw_match
                 elif label == "lettered_subclause":
-                    match_id = re.sub(r'[\(\)\.]', '', raw_match)
+                    match_id = captured if captured else re.sub(r'[\(\)\.]', '', raw_match)
                 else:
                     match_id = raw_match
                 break
