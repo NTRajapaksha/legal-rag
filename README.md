@@ -4,149 +4,133 @@ A robust, containerized Legal Contract RAG (Retrieval-Augmented Generation) prot
 
 ---
 
-## 🏛 System Architecture
+## Architecture Overview
 
-```
-                                 ┌────────────────────────────────────────────────────────┐
-                                 │                   FastAPI Service                      │
-                                 │                                                        │
-    PDFs ──── /ingest ──────────▶│  • Multi-Tier Heading & Section Parser                 │
-(data/contracts)                 │  • Chunking (~400 words) & Defined-Terms Extraction    │
-                                 │  • Qdrant Dense Vector Embeddings + BM25 Sparse Index  │
-                                 │                                                        │
-    User ───── /query ──────────▶│  • Pre-Resolved Native Server-Side Scoped Search       │
-   Query                         │  • Hybrid Retrieval (Dense + BM25 via RRF)             │
-                                 │  • Cross-Reference & Defined-Term Injection            │
-                                 │  • Strict Structured Output Generation (OpenAI)        │
-                                 │  • Triple-Layer Post-Generation Verification Guard     │
-                                 │                                                        │
-    Eval ──── /evaluate ────────▶│  • Ragas Faithfulness & Guardrail Evaluation           │
-                                 └──────────────────────────┬─────────────────────────────┘
-                                                            │
-                                  ┌─────────────────────────┼─────────────────────────┐
-                                  ▼                         ▼                         ▼
-                          ┌───────────────┐         ┌───────────────┐         ┌───────────────┐
-                          │    Qdrant     │         │  BM25 Index   │         │   Vercel AI   │
-                          │ Vector Store  │         │  & Payloads   │         │    Gateway    │
-                          │ (Dense ANN)   │         │   (on-disk)   │         │ (LLM / Embed) │
-                          └───────────────┘         └───────────────┘         └───────────────┘
+```mermaid
+flowchart TD
+    subgraph Ingestion ["1. Ingestion Pipeline"]
+        PDF["PDF Contracts<br><i>data/contracts/</i>"] --> Parser["Multi-Tier Parser<br>(pdfplumber + OCR)"]
+        Parser --> Chunking["Structural Chunking<br>(~400 words + Headings)"]
+        Chunking --> Terms["Defined-Terms Extractor"]
+        Chunking --> DenseEmbed["Dense Embeddings<br>(OpenAI text-embedding-3-small)"]
+        Chunking --> SparseIndex["Sparse Indexer<br>(Okapi BM25)"]
+        DenseEmbed --> Qdrant[("Qdrant Vector Store<br>(Dense ANN)")]
+        SparseIndex --> BM25File[("BM25 Index File<br>(on-disk)")]
+        Terms --> TermsFile[("Defined Terms Index<br>(JSON lookup)")]
+    end
+
+    subgraph Retrieval ["2. Hybrid Retrieval Engine"]
+        UserQuery["User Query<br>(POST /query)"] --> Scoper["Server-Side Scoper<br>(MatchAny doc_id)"]
+        Scoper --> DenseSearch["Dense Vector Search"]
+        Scoper --> SparseSearch["Sparse Lexical Search"]
+        DenseSearch --> RRF["Reciprocal Rank Fusion<br>(RRF Merging)"]
+        SparseSearch --> RRF
+        RRF --> ContextInjection["Context Expansion<br>(Cross-Ref & Defined-Term Injection)"]
+    end
+
+    subgraph Generation ["3. Generation & Verification Guard"]
+        ContextInjection --> LLMGen["LLM Answer Generator<br>(OpenAI Strict JSON Schema)"]
+        LLMGen --> V1["Layer 1: Segmented Fuzzy Quote Matcher"]
+        V1 --> V2["Layer 2: LLM Claim Entailment Verifier"]
+        V2 --> V3["Layer 3: Sanitized Numeric Drift Guard"]
+        V3 --> FinalResponse["Audited JSON Output<br>(Answer + Verified Citations)"]
+    end
+
+    Qdrant -.-> DenseSearch
+    BM25File -.-> SparseSearch
+    TermsFile -.-> ContextInjection
+
+    classDef stage fill:#f8f9fa,stroke:#495057,stroke-width:1px,color:#212529;
+    classDef storage fill:#e9ecef,stroke:#6c757d,stroke-width:1.5px,color:#212529;
+    classDef accent fill:#e7f5ff,stroke:#1c7ed6,stroke-width:1.5px,color:#1864ab;
+    class Scoper,RRF,LLMGen,FinalResponse accent;
+    class Qdrant,BM25File,TermsFile storage;
 ```
 
 ---
 
-## 📂 Repository Folder Structure
+## Core Capabilities
+
+| Capability | Technical Mechanism | Benefit |
+| :--- | :--- | :--- |
+| **Convention-Agnostic Parsing** | Multi-tier detection (Layout $\rightarrow$ Regex capture groups $\rightarrow$ Semantic drop) | Parses Roman articles (`Article XV`), decimal sections, and subclauses across any contract. |
+| **Server-Side Hybrid Retrieval** | Dense vector search (Qdrant) + Sparse lexical (BM25) fused via RRF | Captures semantic intent without losing exact legal jargon, party names, or section numbers. |
+| **Cross-Reference Resolution** | Automated scanning for defined terms and `Section X.Y` pointers | Eliminates semantic gaps by auto-injecting referenced definitions into the context window. |
+| **Triple-Layer Guardrails** | Segmented fuzzy quote check + LLM claim entailment + numeric drift filter | Guarantees zero hallucinations; validates quotes with `...` and rejects invented figures. |
+| **Compound Query Handling** | Multi-intent prompt routing with partial-grounding priority rules | Answers supported questions with citations and declares absence for unmentioned topics. |
+
+---
+
+## Project Structure
 
 ```
 .
-├── app/                               # FastAPI Application Core
-│   ├── __init__.py
-│   ├── main.py                        # REST API routes (/ingest, /query, /evaluate, /health)
-│   ├── ingest.py                      # PDF batch parsing, chunking, and dual-index building
-│   ├── chunking.py                    # Multi-tier layout & regex heading detection, sub-chunking
-│   ├── defined_terms.py               # Defined terms index builder and scanner
-│   ├── retrieval.py                   # Server-side hybrid retrieval (Qdrant + BM25 + RRF + cross-refs)
-│   ├── generation.py                  # Strict structured generation & system prompts
-│   ├── verification.py                # Triple-layer citation grounding, entailment & numeric guards
-│   └── evaluate.py                    # Evaluation dataset loader and pipeline runner
-├── data/                              # Persistent Data & Volume Mount
-│   ├── contracts/                     # ◀◀ TARGET FOLDER: Place all input PDF contracts here
-│   │   ├── ACCELERATEDTECHNOLOGIES...pdf
-│   │   ├── BellringBrandsInc...pdf
-│   │   ├── Freecook...pdf
-│   │   ├── MorganStanleyDirectLendingFund...pdf
-│   │   └── PenntexMidstreamPartnersLp...pdf
-│   ├── eval_set/                      # Gold-standard evaluation Q&A pairs
-│   │   └── questions.json             # 20 curated benchmark legal questions
-│   ├── bm25_index.pkl                 # Serialized Okapi BM25 sparse index (generated on ingest)
-│   ├── chunks.json                    # Chunk metadata and text store (generated on ingest)
-│   └── defined_terms.json             # Defined terms lookup table (generated on ingest)
-├── approach_report.md                 # Detailed report on architectural choices and methodology
-├── architecture.md                    # Technical architecture design and decision documentation
-├── production_readiness_report.md     # Production gap analysis & scaling recommendations
-├── docker-compose.yml                 # Multi-container orchestration (FastAPI + Qdrant)
-├── Dockerfile                         # Application container build specification
-├── requirements.txt                   # Python package dependencies
-└── README.md                          # Project overview and usage guide
+├── app/
+│   ├── main.py           # REST API endpoints (/ingest, /query, /evaluate, /health)
+│   ├── ingest.py         # PDF parsing, chunking, and dual-index building
+│   ├── chunking.py       # Multi-tier layout and regex heading detection, sub-chunking
+│   ├── defined_terms.py  # Defined terms index builder and lookup scanner
+│   ├── retrieval.py      # Server-side hybrid retrieval (Qdrant + BM25 + RRF)
+│   ├── generation.py     # Strict structured generation and system prompts
+│   ├── verification.py   # Triple-layer citation grounding, entailment, and numeric guards
+│   └── evaluate.py       # Evaluation dataset loader and pipeline runner
+├── data/                 # Persistent storage volume
+│   ├── contracts/        # Target directory: place PDF contracts here
+│   └── eval_set/         # Benchmark evaluation dataset
+├── docker-compose.yml    # Container orchestration (FastAPI + Qdrant)
+├── Dockerfile            # Application container specification
+├── requirements.txt      # Python dependencies
+└── README.md             # Project documentation
 ```
 
 ---
 
-## 📄 PDF Contract Storage Instructions
+## PDF Storage Instructions
 
-> [!IMPORTANT]
 > All target PDF contracts must be placed inside the **`data/contracts/`** directory.
 
-- **Supported Format:** Standard text-based `.pdf` / `.PDF` files.
-- **OCR Support:** If a scanned page with no extractable text layer is encountered, the pipeline automatically invokes `pytesseract` OCR as a fallback.
-- **Persistence:** The `./data` folder is mounted into the container as a persistent Docker volume (`./data:/app/data`). When you add or replace PDFs in `data/contracts/`, call `POST /ingest` to re-parse and re-index the documents.
+* **Supported Input:** Standard text-based `.pdf` / `.PDF` documents.
+* **OCR Fallback:** Automatic `pytesseract` image extraction on scanned/image-only pages.
+* **Data Persistence:** The `./data` host directory is mounted as a persistent Docker volume (`./data:/app/data`).
 
 ---
 
-## ✨ Key Features
+## Quickstart Guide
 
-- **Convention-Agnostic Chunking:** Smart multi-tier heading detection (Layout → Regex Patterns with Capture Groups → Semantic Fallback) that parses any legal structure (Roman-numeral Articles, decimal sections, lettered subclauses, exhibits) without hardcoded templates.
-- **Hierarchy Preservation:** Sub-chunks oversized clauses at ~400 words while maintaining exact `parent_section` and `page_number` metadata.
-- **Server-Side Hybrid Search:** Combines dense embeddings in Qdrant with an Okapi BM25 sparse index merged via Reciprocal Rank Fusion (RRF). Human-friendly `doc_filter` values are pre-resolved to canonical IDs and enforced server-side using native Qdrant `MatchAny` filters.
-- **Cross-Reference & Defined-Term Injection:** Scans retrieved text for capitalized defined terms and "Section X.Y" pointers, dynamically pulling definition chunks into context.
-- **Strict Hallucination Prevention:** 
-  - **OpenAI Strict Structured Outputs:** Enforces exact JSON schemas for generation.
-  - **Fail-Closed Guardrails:** Refuses unsupported queries with `"Not enough information to confirm."`
-  - **Compound Query Support:** Answers supported components with exact citations while declaring absence for unmentioned topics without triggering all-or-nothing refusals.
-  - **Triple-Layer Post-Generation Verification:**
-    1. *Segmented Fuzzy Quote Grounding:* Validates quotes against the source text, supporting ellipsis-shortened quotes (`...`).
-    2. *Claim Entailment Verification:* LLM validates that the quote logically entails the stated claim.
-    3. *Sanitized Numeric Drift Guard:* Strictly matches all numbers, dates, and amounts against the source text while filtering out markdown list markers (`1.`) and section labels (`Section X.Y`).
-- **Methodical Faithfulness Evaluation:** Built-in `POST /evaluate` endpoint calculating `ragas` faithfulness metrics across curated gold-standard questions.
+### 1. Environment Setup
+Copy the environment template and provide your API credentials:
+```bash
+cp .env.example .env
+```
+Ensure `.env` contains your Vercel AI Gateway key:
+```env
+AI_GATEWAY_KEY=your_key_here
+AI_GATEWAY_BASE_URL=https://ai-gateway.vercel.sh/v1
+```
 
----
-
-## 🚀 Setup & Configuration
-
-### Prerequisites
-- [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/) installed.
-
-### Configuration
-1. Place your target PDF contracts into `data/contracts/`.
-2. Copy the `.env.example` file to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-3. Update `.env` with your Vercel AI Gateway credentials:
-   ```env
-   AI_GATEWAY_KEY=your_vercel_ai_gateway_key
-   AI_GATEWAY_BASE_URL=https://ai-gateway.vercel.sh/v1
-   ```
-
-### Running the Application
-Spin up the FastAPI app and Qdrant database:
+### 2. Launch Services
+Start the application and Qdrant vector database:
 ```bash
 docker compose up --build
 ```
-- **API Base URL:** `http://localhost:8000`
-- **Interactive Swagger Docs:** `http://localhost:8000/docs`
+* **API Endpoint:** `http://localhost:8000`
+* **Swagger Documentation:** `http://localhost:8000/docs`
 
 ---
 
-## 📡 API Endpoints
+## API Reference
 
-### 1. Ingest Documents (`POST /ingest`)
-Parses, chunks, embeds, and indexes all PDFs currently located in `data/contracts/`.
+### Ingest Documents
+Parses and builds the dense and sparse indices from `data/contracts/`.
 ```bash
 curl -X POST http://localhost:8000/ingest
 ```
-**Response:**
-```json
-{
-  "status": "success"
-}
-```
 
 ---
 
-### 2. Query Contract (`POST /query`)
-Executes hybrid retrieval, structured generation, and triple-layer verification.
+### Query Contracts
 
-#### Single-Contract Query with `doc_filter`:
+#### Scoped Single-Document Query:
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
@@ -156,24 +140,24 @@ curl -X POST http://localhost:8000/query \
   }'
 ```
 
-#### Multi-Document Cross-Comparison Query (No filter):
+#### Multi-Document Cross-Comparison Query:
 ```bash
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
   -d '{
-    "question": "What is the governing law specified in each of the contracts?"
+    "question": "What is the governing law specified across all agreements?"
   }'
 ```
 
-**Sample Response:**
+#### Response Structure:
 ```json
 {
-  "answer": "The governing law of the Joint Venture Agreement is the laws of the Commonwealth of Pennsylvania, as stated in Section 14: \"the construction and interpretation of the terms and provisions of this Agreement shall be interpreted and construed under the laws of the Commonwealth of Pennsylvania.\"",
+  "answer": "The governing law of the Joint Venture Agreement is the laws of the Commonwealth of Pennsylvania, as stated in Section 14...",
   "citations": [
     {
-      "doc_id": "ACCELERATEDTECHNOLOGIESHOLDINGCORP_04_24_2003-EX-10.13-JOINT VENTURE AGREEMENT.PDF",
+      "doc_id": "ACCELERATEDTECHNOLOGIESHOLDINGCORP..._JOINT VENTURE AGREEMENT.PDF",
       "section_id": "14",
-      "quote": "the construction and interpretation of the terms and provisions of this Agreement shall be interpreted and construed under the laws of the Commonwealth of Pennsylvania.",
+      "quote": "...construction and interpretation... shall be interpreted and construed under the laws of the Commonwealth of Pennsylvania...",
       "section_unconfirmed": false
     }
   ],
@@ -185,26 +169,19 @@ curl -X POST http://localhost:8000/query \
 
 ---
 
-### 3. Evaluate Pipeline (`POST /evaluate`)
-Runs the 20 gold-standard legal questions through the live pipeline and scores accuracy, guardrail interception rates, and `ragas` faithfulness.
+### Batch Faithfulness Evaluation
+Executes the gold-standard 20-question legal benchmark and reports `ragas` faithfulness:
 ```bash
 curl -X POST http://localhost:8000/evaluate
 ```
 
 ---
 
-### 4. Health Check (`GET /health`)
-```bash
-curl http://localhost:8000/health
-```
+## Bonus Tasks Mapping
 
----
-
-## 🏆 Bonus Tasks Implementation Mapping
-
-| Bonus Task | Implementation Details | Location in Codebase |
+| Assessment Item | Implementation Component | File Location |
 | :--- | :--- | :--- |
-| **Bonus 1: Hybrid Search & Retrieval** | Dense vector search via Qdrant combined with sparse Okapi BM25 via Reciprocal Rank Fusion (RRF), native server-side `MatchAny` filtering, and cross-reference/defined-term injection. | [app/retrieval.py](app/retrieval.py) |
-| **Bonus 2: Hallucination Prevention** | Closed-book strict structured prompt, segmented fuzzy quote matcher, LLM claim entailment check, and sanitized numeric drift detector. | [app/verification.py](app/verification.py) & [app/generation.py](app/generation.py) |
-| **Bonus 3: Faithfulness Evaluation** | Batch benchmark evaluator calculating `ragas` faithfulness and guardrail containment rate over curated questions. | [app/main.py](app/main.py) & [app/evaluate.py](app/evaluate.py) |
-| **Bonus 4: Docker Compose** | Multi-container setup with automated service networking and persistent volume mounts. | [docker-compose.yml](docker-compose.yml) & [Dockerfile](Dockerfile) |
+| **Bonus 1: Hybrid Search** | Dense Qdrant + Okapi BM25 with Reciprocal Rank Fusion & Server-Side Filtering | `app/retrieval.py` |
+| **Bonus 2: Anti-Hallucination** | Segmented quote grounding, LLM entailment verification & numeric drift guard | `app/verification.py` |
+| **Bonus 3: Faithfulness Evaluation** | Benchmark execution with `ragas` faithfulness & guardrail containment metrics | `app/main.py` |
+| **Bonus 4: Docker Compose** | Multi-container orchestration (FastAPI + Qdrant) with persistent volume mounts | `docker-compose.yml` |
