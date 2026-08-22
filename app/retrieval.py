@@ -3,6 +3,7 @@ import json
 import pickle
 from collections import defaultdict
 from qdrant_client import QdrantClient
+from qdrant_client.models import Filter, FieldCondition, MatchAny
 from .chunking import get_embedding
 import re
 
@@ -35,6 +36,31 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
         with open("./data/defined_terms.json", "r") as f:
             defined_terms = json.load(f)
             
+    # Resolve doc_filter against known doc_ids for server-side Qdrant filtering
+    query_filter = None
+    matching_doc_ids = None
+    if doc_filter:
+        known_doc_ids = {c["doc_id"] for c in all_chunks}
+        matching_doc_ids = [d for d in known_doc_ids if doc_filter.lower() in d.lower()]
+        if matching_doc_ids:
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="doc_id",
+                        match=MatchAny(any=matching_doc_ids)
+                    )
+                ]
+            )
+        else:
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="doc_id",
+                        match=MatchAny(any=["__non_existent_doc_id__"])
+                    )
+                ]
+            )
+
     # 1. Dense Leg
     query_vector = get_embedding(question)
     
@@ -42,23 +68,19 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 10):
         dense_results = client.query_points(
             collection_name=collection_name,
             query=query_vector,
-            limit=100
+            query_filter=query_filter,
+            limit=20
         ).points
     except AttributeError:
         # Fallback for older qdrant-client versions
         dense_results = client.search(
             collection_name=collection_name,
             query_vector=query_vector,
-            limit=100
+            query_filter=query_filter,
+            limit=20
         )
         
-    dense_ranked_ids = []
-    for hit in dense_results:
-        if doc_filter and doc_filter.lower() not in hit.payload["doc_id"].lower():
-            continue
-        dense_ranked_ids.append(hit.payload["chunk_idx"])
-        if len(dense_ranked_ids) == 20:
-            break
+    dense_ranked_ids = [hit.payload["chunk_idx"] for hit in dense_results][:20]
     
     # 2. Sparse Leg
     tokenized_query = re.sub(r'[^\w\s]', '', question.lower()).split()
