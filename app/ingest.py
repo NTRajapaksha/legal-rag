@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import pickle
 from qdrant_client import QdrantClient
@@ -7,7 +8,6 @@ from rank_bm25 import BM25Okapi
 from .chunking import chunk_document, embed_batch
 from .defined_terms import build_defined_terms_index
 import glob
-
 import httpx
 from rapidfuzz import fuzz
 
