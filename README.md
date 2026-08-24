@@ -231,7 +231,7 @@ curl -X POST http://localhost:8000/query \
 ---
 
 ### 4. Batch Faithfulness Evaluation (`POST /evaluate`)
-Executes the gold-standard 20-question legal benchmark and reports `ragas` faithfulness:
+Executes the 20-question legal benchmark and reports strict accuracy, guardrail success rate (catches and correctly flags any unverifiable answer), and `RAGAS` faithfulness:
 ```bash
 curl -X POST http://localhost:8000/evaluate
 ```
