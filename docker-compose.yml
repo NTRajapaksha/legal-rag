@@ -3,6 +3,8 @@ services:
     image: qdrant/qdrant:latest
     ports: ["6333:6333"]
     volumes: ["qdrant_data:/qdrant/storage"]
+    networks:
+      - rag_net
 
   app:
     build: .
@@ -10,8 +12,15 @@ services:
     env_file: .env
     environment:
       - QDRANT_URL=http://qdrant:6333
-    depends_on: [qdrant]
+    depends_on:
+      - qdrant
     volumes: ["./data:/app/data"]
+    networks:
+      - rag_net
+
+networks:
+  rag_net:
+    driver: bridge
 
 volumes:
   qdrant_data:

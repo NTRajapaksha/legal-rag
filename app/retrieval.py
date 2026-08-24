@@ -55,7 +55,7 @@ def get_qdrant_client():
     global _QDRANT_CLIENT
     if _QDRANT_CLIENT is None:
         qdrant_url = os.getenv("QDRANT_URL", "http://qdrant:6333")
-        _QDRANT_CLIENT = QdrantClient(url=qdrant_url)
+        _QDRANT_CLIENT = QdrantClient(url=qdrant_url, check_compatibility=False, timeout=30.0)
     return _QDRANT_CLIENT
 
 def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 15):

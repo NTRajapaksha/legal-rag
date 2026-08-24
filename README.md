@@ -116,8 +116,18 @@ Start the application and Qdrant vector database:
 ```bash
 docker compose up --build
 ```
-* **API Endpoint:** `http://localhost:8000`
-* **Swagger Documentation:** `http://localhost:8000/docs`
+* **API Base URL:** `http://localhost:8000`
+* **Interactive Swagger UI:** `http://localhost:8000/docs`
+
+### 3. Ingest & Verify
+Trigger the pipeline to index documents and run the evaluation benchmark:
+```bash
+# 1. Ingest all PDFs in data/contracts/
+curl -X POST http://localhost:8000/ingest
+
+# 2. Run the 20-question evaluation benchmark
+curl -X POST http://localhost:8000/evaluate
+```
 
 ---
 

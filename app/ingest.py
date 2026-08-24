@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import json
 import pickle
 from qdrant_client import QdrantClient
@@ -104,21 +105,28 @@ def summarize_contract(doc_id: str, sample_text: str) -> str:
 
 def ingest_all():
     qdrant_url = os.getenv("QDRANT_URL", "http://qdrant:6333")
-    client = QdrantClient(url=qdrant_url)
-    
     collection_name = "contracts"
-    # Create or reset collection
-    try:
+    client = None
+    
+    # Retry connection in case Qdrant container is still initializing
+    for attempt in range(5):
         try:
-            client.delete_collection(collection_name=collection_name)
-        except Exception:
-            pass
-        client.create_collection(
-            collection_name=collection_name,
-            vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
-        )
-    except Exception as e:
-        print(f"Failed to create Qdrant collection: {e}")
+            client = QdrantClient(url=qdrant_url, check_compatibility=False, timeout=30.0)
+            try:
+                client.delete_collection(collection_name=collection_name)
+            except Exception:
+                pass
+            client.create_collection(
+                collection_name=collection_name,
+                vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
+            )
+            break
+        except Exception as e:
+            print(f"Connecting to Qdrant at {qdrant_url} (attempt {attempt + 1}/5): {e}")
+            time.sleep(2)
+            
+    if client is None:
+        print(f"Failed to connect to Qdrant at {qdrant_url}")
         return False
         
     all_chunks = []
