@@ -1,6 +1,6 @@
 import os
 import json
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
 from .ingest import ingest_all
@@ -111,8 +111,9 @@ def evaluate():
         "contexts": []
     }
     
-    for q in questions:
-        # Run through our pipeline
+    from concurrent.futures import ThreadPoolExecutor
+
+    def eval_single(q):
         chunks = hybrid_retrieve(q["question"], q.get("doc_filter"))
         raw_response = generate_answer(q["question"], chunks)
         verified_resp, failed_cits = verify_citations(raw_response, chunks)
@@ -139,21 +140,34 @@ def evaluate():
         elif len(verified_resp.citations) == 0:
             answer_text = "[WARNING: This answer could not be verified against the source text and may contain hallucinations.]\n\n" + answer_text
             
-        if status == "correct":
-            passed += 1
-        elif status == "flagged_unverified":
-            flagged += 1
-            
-        results.append({
-            "question": q["question"],
+        return {
             "status": status,
-            "answer": answer_text,
-            "failed_citations": len(failed_cits)
-        })
-        
-        ragas_data["question"].append(q["question"])
-        ragas_data["answer"].append(answer_text)
-        ragas_data["contexts"].append([c["text"] for c in chunks])
+            "res": {
+                "question": q["question"],
+                "status": status,
+                "answer": answer_text,
+                "failed_citations": len(failed_cits)
+            },
+            "ragas": {
+                "question": q["question"],
+                "answer": answer_text,
+                "contexts": [c["text"] for c in chunks]
+            }
+        }
+
+    # Run question evaluations concurrently with 5 workers
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        eval_outputs = list(executor.map(eval_single, questions))
+
+    for item in eval_outputs:
+        if item["status"] == "correct":
+            passed += 1
+        elif item["status"] == "flagged_unverified":
+            flagged += 1
+        results.append(item["res"])
+        ragas_data["question"].append(item["ragas"]["question"])
+        ragas_data["answer"].append(item["ragas"]["answer"])
+        ragas_data["contexts"].append(item["ragas"]["contexts"])
         
     ragas_scores = {}
     try:

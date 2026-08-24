@@ -1,4 +1,5 @@
 import os
+import json
 import httpx
 from pydantic import BaseModel, Field
 
@@ -108,7 +109,6 @@ Rules:
         response.raise_for_status()
         data = response.json()
         content = data["choices"][0]["message"]["content"]
-        import json
         parsed = json.loads(content)
         return GenerationResponse(**parsed)
     except Exception as e:

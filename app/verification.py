@@ -11,6 +11,14 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
     if response.insufficient_context:
          return response, []
          
+    gateway_url = os.getenv("AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh/v1")
+    key = os.getenv("AI_GATEWAY_KEY", "")
+    model = os.getenv("GENERATION_MODEL", "openai/gpt-4o-mini")
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json"
+    }
+
     verified_citations = []
     failed_citations = []
     
@@ -43,10 +51,8 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
             doc_matches.append(seg_score >= 85)
             
         if not doc_matches or not all(doc_matches):
-            score = fuzz.partial_ratio(cit.quote.lower(), doc_chunk_text.lower())
-            if score < 85:
-                failed_citations.append({"citation": cit.dict(), "reason": f"Quote mismatch (score: {score})"})
-                continue
+            failed_citations.append({"citation": cit.dict(), "reason": "Quote not found in source document"})
+            continue
               
         # 1b. Secondary section-level check
         if section_chunk_text:
@@ -62,15 +68,6 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
             cit.section_unconfirmed = True
               
         # 2. Entailment check
-        gateway_url = os.getenv("AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh/v1")
-        key = os.getenv("AI_GATEWAY_KEY", "")
-        model = os.getenv("GENERATION_MODEL", "openai/gpt-4o-mini")
-        
-        headers = {
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json"
-        }
-        
         entailment_prompt = f"Does the provided quote support at least one specific claim made in the following statement? Answer only YES or NO.\n\nStatement: {response.answer}\n\nQuote: {cit.quote}"
         
         payload = {

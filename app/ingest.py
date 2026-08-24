@@ -126,7 +126,6 @@ def ingest_all():
     doc_catalog = []
     
     # Process all PDFs in data/contracts
-    import fnmatch
     pdf_paths = [f for f in glob.glob("/app/data/contracts/*") if f.lower().endswith(".pdf")]
     if not pdf_paths:
         # Fallback for local testing outside docker
