@@ -49,9 +49,17 @@ def load_indices():
         print(f"Error loading indices: {e}")
         return None, [], []
 
+_QDRANT_CLIENT = None
+
+def get_qdrant_client():
+    global _QDRANT_CLIENT
+    if _QDRANT_CLIENT is None:
+        qdrant_url = os.getenv("QDRANT_URL", "http://qdrant:6333")
+        _QDRANT_CLIENT = QdrantClient(url=qdrant_url)
+    return _QDRANT_CLIENT
+
 def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 15):
-    qdrant_url = os.getenv("QDRANT_URL", "http://qdrant:6333")
-    client = QdrantClient(url=qdrant_url)
+    client = get_qdrant_client()
     collection_name = "contracts"
     
     bm25, all_chunks, defined_terms = load_indices()
