@@ -134,23 +134,23 @@ curl http://localhost:8000/documents
   "documents": [
     {
       "doc_id": "ACCELERATEDTECHNOLOGIESHOLDINGCORP_04_24_2003-EX-10.13-JOINT VENTURE AGREEMENT.PDF",
-      "description": "The Joint Venture Agreement is between Collectible Concepts Group, Inc. and Pivotal Self Service Tech, Inc. for the purpose of marketing batteries and related products under the name MightyCell Batteries."
+      "description": "The Joint Venture Agreement establishes a partnership between two entities for the purpose of marketing batteries and related products."
     },
     {
       "doc_id": "BellringBrandsInc_20190920_S-1_EX-10.12_11817081_EX-10.12_Manufacturing Agreement1",
-      "description": "Stremicks Heritage Foods, LLC and Premier Nutrition Corporation entered into a manufacturing agreement for Heritage to produce food products for Premier using proprietary formulations and processes."
+      "description": "This Manufacturing Agreement is made between a food producer and a corporation for the production and packaging of proprietary food products."
     },
     {
       "doc_id": "Freecook_20180605_S-1_EX-10.3_11233807_EX-10.3_Hosting Agreement",
-      "description": "The contract is between Natalija Tunevic of FreeCook and Mitchell Vitalis of Mitchell's Web Advance, PLC for the design, development, and hosting of a website for a total fee of $5,000."
+      "description": "This agreement is between a Client and a Company for the design, development, and hosting of a website in exchange for a specified contract price."
     },
     {
       "doc_id": "MorganStanleyDirectLendingFund_20191119_10-12GA_EX-10.5_11898508_EX-10.5_Trademark License Agreement",
-      "description": "The contract is a Trademark License Agreement between Morgan Stanley and its wholly owned subsidiaries, granting a non-exclusive license to use a specific Brand for permitted activities while ensuring that ownership remains with Morgan Stanley."
+      "description": "The Trademark License Agreement between Licensor and Licensee grants a non-exclusive license for the use of a Brand solely for specified activities, with conditions on sublicensing and ownership rights."
     },
     {
       "doc_id": "PenntexMidstreamPartnersLp_20150416_S-1A_EX-10.4_9042833_EX-10.4_Transportation Agreement",
-      "description": "The contract is between PennTex Midstream Partners, LLC and Memorial Resource Development Corp. for the transportation of natural gas through PennTex's transportation system."
+      "description": "The Transportation Agreement is between Transporter and Customer for the provision of natural gas transportation services under specified terms and conditions."
     }
   ]
 }

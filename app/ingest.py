@@ -9,6 +9,35 @@ from .defined_terms import build_defined_terms_index
 import glob
 
 import httpx
+from rapidfuzz import fuzz
+
+def verify_summary_grounding(summary: str, source_text: str, doc_id: str) -> bool:
+    """
+    Verifies that company/entity names mentioned in the summary actually exist in the source text or doc_id.
+    """
+    full_source = (source_text + " " + doc_id).lower()
+    common_stops = {
+        "the", "this", "a", "an", "in", "under", "for", "between", "contract", 
+        "agreement", "joint", "venture", "license", "manufacturing", "transportation", 
+        "hosting", "section", "article", "exhibit", "schedule", "party", "parties"
+    }
+    
+    entity_candidates = re.findall(r'\b[A-Z][a-zA-Z0-9&]+(?:\s+[A-Z][a-zA-Z0-9&]+)*(?:,\s*(?:Inc\.|LLC|L\.L\.C\.|Corp\.|PLC|Ltd\.))?', summary)
+    for ent in entity_candidates:
+        words = [w.lower() for w in re.split(r'\s+', ent) if w.lower() not in common_stops and len(w) > 2]
+        if not words:
+            continue
+        clean_ent = " ".join(words)
+        
+        # Check if the named entity phrase is present or fuzzy matches
+        score = fuzz.partial_ratio(clean_ent, full_source)
+        if score < 80 and clean_ent not in full_source:
+            # Check individual key words
+            unmatched_words = [w for w in words if len(w) >= 4 and w not in full_source and fuzz.partial_ratio(w, full_source) < 85]
+            if unmatched_words:
+                print(f"Summary grounding failed for ungrounded entity: '{ent}' (unmatched: {unmatched_words}) in doc: {doc_id}")
+                return False
+    return True
 
 def summarize_contract(doc_id: str, sample_text: str) -> str:
     gateway_url = os.getenv("AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh/v1")
@@ -20,18 +49,48 @@ def summarize_contract(doc_id: str, sample_text: str) -> str:
         "Content-Type": "application/json"
     }
     
-    prompt = (
+    # 1. First attempt: Ask for specific parties if literally present in text
+    primary_prompt = (
         f"Contract Document ID: {doc_id}\n\n"
         f"Introductory Excerpt:\n{sample_text[:3000]}\n\n"
-        "Task: Identify the specific named company or individual parties (use their real commercial names, NOT generic roles like 'Licensor', 'Licensee', 'Customer', 'Transporter', or 'Party') and summarize the core commercial purpose of this contract in exactly one clear, factual sentence."
+        "Task: Summarize the contracting parties and the core commercial purpose of this contract in exactly one clear, factual sentence.\n"
+        "Strict Rules:\n"
+        "1. ONLY state specific company or individual names if they appear literally in the excerpt above. NEVER guess, expand acronyms, or infer corporate relationships.\n"
+        "2. If exact entity names are not fully stated or are defined by role (e.g. 'Licensor', 'Transporter'), use those exact defined roles or the agreement title."
     )
     
+    candidate_summary = None
     try:
         payload = {
             "model": model,
             "messages": [
                 {"role": "system", "content": "You are a legal analyst. Output only the one-sentence summary without preamble."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": primary_prompt}
+            ],
+            "temperature": 0.0
+        }
+        res = httpx.post(f"{gateway_url}/chat/completions", headers=headers, json=payload, timeout=20.0)
+        if res.status_code == 200:
+            candidate_summary = res.json()["choices"][0]["message"]["content"].strip()
+            # 2. Verify summary entity grounding
+            if verify_summary_grounding(candidate_summary, sample_text, doc_id):
+                return candidate_summary
+            print(f"Grounding failed for candidate summary in {doc_id}. Falling back to safe role-based summary.")
+    except Exception as e:
+        print(f"Primary summary generation failed for {doc_id}: {e}")
+    
+    # 3. Fallback: Generate safe role-based summary without naming unverified entities
+    fallback_prompt = (
+        f"Contract Document ID: {doc_id}\n\n"
+        f"Introductory Excerpt:\n{sample_text[:2500]}\n\n"
+        "Task: Summarize the commercial purpose of this agreement in exactly one factual sentence using only the agreement title and generic defined roles (such as 'between Licensor and Licensee' or 'between Transporter and Customer') without asserting unverified company names."
+    )
+    try:
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a legal analyst. Output only the one-sentence summary without preamble."},
+                {"role": "user", "content": fallback_prompt}
             ],
             "temperature": 0.0
         }
@@ -39,7 +98,7 @@ def summarize_contract(doc_id: str, sample_text: str) -> str:
         if res.status_code == 200:
             return res.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        print(f"Summary generation failed for {doc_id}: {e}")
+        print(f"Fallback summary generation failed for {doc_id}: {e}")
     
     return f"Legal contract concerning {doc_id}."
 
