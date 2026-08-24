@@ -134,23 +134,23 @@ curl http://localhost:8000/documents
   "documents": [
     {
       "doc_id": "ACCELERATEDTECHNOLOGIESHOLDINGCORP_04_24_2003-EX-10.13-JOINT VENTURE AGREEMENT.PDF",
-      "description": "Joint venture agreement between Collectible Concepts Group and Pivotal Self Service Tech to manufacture and market MightyCell batteries."
+      "description": "The Joint Venture Agreement is between Collectible Concepts Group, Inc. and Pivotal Self Service Tech, Inc. for the purpose of marketing batteries and related products under the name MightyCell Batteries."
     },
     {
-      "doc_id": "BellringBrandsInc_20190920_S-1_EX-10.12_11817081_EX-10.12_Manufacturing Agreement1.pdf",
-      "description": "Manufacturing agreement between Stremicks Heritage Foods and Premier Nutrition for processing and packaging ready-to-drink beverages."
+      "doc_id": "BellringBrandsInc_20190920_S-1_EX-10.12_11817081_EX-10.12_Manufacturing Agreement1",
+      "description": "Stremicks Heritage Foods, LLC and Premier Nutrition Corporation entered into a manufacturing agreement for Heritage to produce food products for Premier using proprietary formulations and processes."
     },
     {
-      "doc_id": "Freecook_20180605_S-1_EX-10.3_11233807_EX-10.3_Hosting Agreement.pdf",
-      "description": "Website hosting and infrastructure maintenance agreement between Freecook and Mitchell's Web Advance PLC."
+      "doc_id": "Freecook_20180605_S-1_EX-10.3_11233807_EX-10.3_Hosting Agreement",
+      "description": "The contract is between Natalija Tunevic of FreeCook and Mitchell Vitalis of Mitchell's Web Advance, PLC for the design, development, and hosting of a website for a total fee of $5,000."
     },
     {
-      "doc_id": "MorganStanleyDirectLendingFund_20191119_10-12GA_EX-10.5_11898508_EX-10.5_Trademark License Agreement.pdf",
-      "description": "Trademark license agreement granting Morgan Stanley Direct Lending Fund non-exclusive rights to use the Morgan Stanley brand name."
+      "doc_id": "MorganStanleyDirectLendingFund_20191119_10-12GA_EX-10.5_11898508_EX-10.5_Trademark License Agreement",
+      "description": "The contract is between Licensor and Licensee, granting the Licensee a non-exclusive license to use the Brand for specified activities while maintaining the Licensor's ownership rights."
     },
     {
-      "doc_id": "PenntexMidstreamPartnersLp_20150416_S-1A_EX-10.4_9042833_EX-10.4_Transportation Agreement.pdf",
-      "description": "Gas transportation agreement between PennTex North Louisiana Lateral and Customer covering firm natural gas gathering and delivery services."
+      "doc_id": "PenntexMidstreamPartnersLp_20150416_S-1A_EX-10.4_9042833_EX-10.4_Transportation Agreement",
+      "description": "The contract is between Transporter, which operates a natural gas transportation system, and Customer, who has the right to deliver gas for transportation, establishing terms for the provision of transportation services."
     }
   ]
 }
@@ -166,6 +166,8 @@ The `doc_filter` parameter in `POST /query` supports case-insensitive substring 
 | **Hosting Agreement** (`Freecook...`) | `"Freecook"`, `"Hosting"`, `"Advance"` |
 | **Trademark License** (`MorganStanleyDirectLendingFund...`) | `"Morgan Stanley"`, `"Trademark"`, `"License"` |
 | **Transportation Agreement** (`PenntexMidstreamPartnersLp...`) | `"Penntex"`, `"Transportation"`, `"Midstream"` |
+
+* **Broad vs. Narrow Filters:** If a filter matches multiple documents (e.g. `"Manufacturing"` matching several manufacturing agreements), the system dynamically resolves all matching IDs and scopes the search across all of them via server-side `MatchAny`. To target an exact document, include a unique qualifier such as the entity name or filing year (e.g., `"Bellring"` or `"2019"`).
 
 ---
 

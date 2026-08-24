@@ -22,8 +22,8 @@ def summarize_contract(doc_id: str, sample_text: str) -> str:
     
     prompt = (
         f"Contract Document ID: {doc_id}\n\n"
-        f"Introductory Excerpt:\n{sample_text[:2500]}\n\n"
-        "Task: Summarize the contracting parties and the core commercial purpose of this contract in exactly one clear, factual sentence."
+        f"Introductory Excerpt:\n{sample_text[:3000]}\n\n"
+        "Task: Identify the specific named company or individual parties (use their real commercial names, NOT generic roles like 'Licensor', 'Licensee', 'Customer', 'Transporter', or 'Party') and summarize the core commercial purpose of this contract in exactly one clear, factual sentence."
     )
     
     try:
