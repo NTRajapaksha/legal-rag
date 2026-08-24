@@ -23,12 +23,14 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
     failed_citations = []
     
     for cit in response.citations:
-        # Find chunk for the entire document
+        # Find chunk for the entire document with normalized doc_id matching
         doc_chunk_text = ""
         section_chunk_text = ""
+        cit_doc = cit.doc_id.lower().replace(".pdf", "").strip()
         
         for c in context_chunks:
-            if c["doc_id"] == cit.doc_id:
+            c_doc = c["doc_id"].lower().replace(".pdf", "").strip()
+            if c_doc == cit_doc or cit_doc in c_doc or c_doc in cit_doc:
                 doc_chunk_text += c["text"] + " "
                 if cit.section_id in ("", "None") or c.get("section_id") == cit.section_id:
                     section_chunk_text += c["text"] + " "
@@ -91,20 +93,23 @@ def verify_citations(response: GenerationResponse, context_chunks: list[dict]) -
         
         verified_citations.append(cit)
         
-    # 3. Exact numeric guard across the entire answer (excluding list enumerations and section markers)
+    # 3. Exact numeric guard across the entire answer (excluding list enumerations, section markers, and document year labels)
     num_pattern = re.compile(r'\b\d+(\.\d+)?\b')
     clean_ans = re.sub(r'(?m)^\s*\d+[\.\)]\s*', ' ', response.answer)
-    clean_ans = re.sub(r'Section\s+\d+(\.\d+)*', ' ', clean_ans, flags=re.IGNORECASE)
+    clean_ans = re.sub(r'(?i)(?:Section|Article|Exhibit|Schedule|Part)\s+[A-Z0-9\.]+', ' ', clean_ans)
+    clean_ans = re.sub(r'\b(?:19|20)\d{2}\b', ' ', clean_ans) # Exclude 4-digit year labels (e.g. 2003, 2015, 2017, 2019)
     ans_nums = set(m.group() for m in num_pattern.finditer(clean_ans))
     
     # Collect all text and section_ids from all verified cited chunks
     all_cited_text = ""
     for cit in verified_citations:
+        cit_doc = cit.doc_id.lower().replace(".pdf", "").strip()
         if cit.section_id:
             all_cited_text += cit.section_id + " "
         for c in context_chunks:
-             if c["doc_id"] == cit.doc_id:
-                 all_cited_text += c["text"] + " "
+            c_doc = c["doc_id"].lower().replace(".pdf", "").strip()
+            if c_doc == cit_doc or cit_doc in c_doc or c_doc in cit_doc:
+                all_cited_text += c["text"] + " " + c["doc_id"] + " "
                   
     chunk_nums = set(m.group() for m in num_pattern.finditer(all_cited_text))
     

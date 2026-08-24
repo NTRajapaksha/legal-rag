@@ -55,6 +55,17 @@ Rules:
     
     # Use OpenAI function calling / structured output format
     schema = GenerationResponse.model_json_schema()
+    valid_doc_ids = sorted(list({c["doc_id"] for c in context_chunks}))
+    
+    if "$defs" in schema and "Citation" in schema["$defs"]:
+        if "properties" in schema["$defs"]["Citation"] and "doc_id" in schema["$defs"]["Citation"]["properties"]:
+            if valid_doc_ids:
+                schema["$defs"]["Citation"]["properties"]["doc_id"]["enum"] = valid_doc_ids
+    elif "properties" in schema and "citations" in schema["properties"]:
+        # Fallback if Citation is inlined
+        items = schema["properties"]["citations"].get("items", {})
+        if "properties" in items and "doc_id" in items["properties"] and valid_doc_ids:
+            items["properties"]["doc_id"]["enum"] = valid_doc_ids
     
     def enforce_strict(s):
         if not isinstance(s, dict):
