@@ -8,7 +8,6 @@ qdrant-client
 rank-bm25
 rapidfuzz
 numpy
-nltk
 httpx
 python-dotenv
 ragas==0.1.21
