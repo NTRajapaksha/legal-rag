@@ -146,11 +146,11 @@ curl http://localhost:8000/documents
     },
     {
       "doc_id": "MorganStanleyDirectLendingFund_20191119_10-12GA_EX-10.5_11898508_EX-10.5_Trademark License Agreement",
-      "description": "The contract is between Licensor and Licensee, granting the Licensee a non-exclusive license to use the Brand for specified activities while maintaining the Licensor's ownership rights."
+      "description": "The contract is a Trademark License Agreement between Morgan Stanley and its wholly owned subsidiaries, granting a non-exclusive license to use a specific Brand for permitted activities while ensuring that ownership remains with Morgan Stanley."
     },
     {
       "doc_id": "PenntexMidstreamPartnersLp_20150416_S-1A_EX-10.4_9042833_EX-10.4_Transportation Agreement",
-      "description": "The contract is between Transporter, which operates a natural gas transportation system, and Customer, who has the right to deliver gas for transportation, establishing terms for the provision of transportation services."
+      "description": "The contract is between PennTex Midstream Partners, LLC and Memorial Resource Development Corp. for the transportation of natural gas through PennTex's transportation system."
     }
   ]
 }
