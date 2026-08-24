@@ -107,14 +107,18 @@ def ingest_all():
     client = QdrantClient(url=qdrant_url)
     
     collection_name = "contracts"
-    # Recreate collection
+    # Create or reset collection
     try:
-        client.recreate_collection(
+        try:
+            client.delete_collection(collection_name=collection_name)
+        except Exception:
+            pass
+        client.create_collection(
             collection_name=collection_name,
             vectors_config=VectorParams(size=1536, distance=Distance.COSINE),
         )
     except Exception as e:
-        print(f"Failed to recreate Qdrant collection: {e}")
+        print(f"Failed to create Qdrant collection: {e}")
         return False
         
     all_chunks = []

@@ -7,11 +7,11 @@ def build_defined_terms_index(doc_id: str, full_text: str, chunks: list[dict]) -
     """
     defined_terms = []
     
-    # Pattern 1: "Term" means / "Term" shall mean / "Term" refers to
-    pattern_means = re.compile(r'["“”]([A-Z][a-zA-Z\s]+)["“”]\s+(means|shall mean|refers to)', re.IGNORECASE)
+    # Pattern 1: "Term" means / 'Term' shall mean / "Term" refers to / "Term" has the meaning
+    pattern_means = re.compile(r'[\'\"“’‘”]([A-Z][a-zA-Z0-9\s]+)[\'\"“’‘”]\s+(?:means|shall mean|refers to|has the meaning|shall have the meaning)', re.IGNORECASE)
     
-    # Pattern 2: (collectively, the "Term") or (the "Term") or ("Term")
-    pattern_paren = re.compile(r'\(\s*(?:hereinafter(?: referred to as)?|collectively)?\s*(?:,?)\s*(?:the\s+)?["“”]([A-Z][a-zA-Z0-9\s]+)["“”]\s*\)', re.IGNORECASE)
+    # Pattern 2: (collectively, the "Term") or ('Permitted Activity') or (the "Brand")
+    pattern_paren = re.compile(r'\(\s*(?:hereinafter(?: referred to as)?|collectively)?\s*(?:,?)\s*(?:the\s+|each,\s+a\s+|an\s+)?[\'\"“’‘”]([A-Z][a-zA-Z0-9\s]+)[\'\"“’‘”]\s*\)', re.IGNORECASE)
     
     matches_means = pattern_means.finditer(full_text)
     matches_paren = pattern_paren.finditer(full_text)

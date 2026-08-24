@@ -15,26 +15,48 @@ def rrf(dense_ranked_ids, sparse_ranked_ids, k=60):
         scores[cid] += 1 / (k + rank + 1)
     return sorted(scores.items(), key=lambda x: -x[1])
 
+_CACHE = {
+    "bm25": None,
+    "all_chunks": None,
+    "defined_terms": None,
+    "mtime": 0
+}
+
+def load_indices():
+    data_dir = "/app/data" if os.path.exists("/app/data/chunks.json") else "./data"
+    chunks_file = os.path.join(data_dir, "chunks.json")
+    if not os.path.exists(chunks_file):
+        return None, [], []
+    
+    current_mtime = os.path.getmtime(chunks_file)
+    if _CACHE["all_chunks"] is not None and _CACHE["mtime"] == current_mtime:
+        return _CACHE["bm25"], _CACHE["all_chunks"], _CACHE["defined_terms"]
+        
+    try:
+        with open(os.path.join(data_dir, "bm25_index.pkl"), "rb") as f:
+            bm25 = pickle.load(f)
+        with open(chunks_file, "r", encoding="utf-8") as f:
+            all_chunks = json.load(f)
+        with open(os.path.join(data_dir, "defined_terms.json"), "r", encoding="utf-8") as f:
+            defined_terms = json.load(f)
+            
+        _CACHE["bm25"] = bm25
+        _CACHE["all_chunks"] = all_chunks
+        _CACHE["defined_terms"] = defined_terms
+        _CACHE["mtime"] = current_mtime
+        return bm25, all_chunks, defined_terms
+    except Exception as e:
+        print(f"Error loading indices: {e}")
+        return None, [], []
+
 def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 15):
     qdrant_url = os.getenv("QDRANT_URL", "http://qdrant:6333")
     client = QdrantClient(url=qdrant_url)
     collection_name = "contracts"
     
-    # Load BM25 and chunks
-    try:
-        with open("/app/data/bm25_index.pkl", "rb") as f:
-            bm25 = pickle.load(f)
-        with open("/app/data/chunks.json", "r") as f:
-            all_chunks = json.load(f)
-        with open("/app/data/defined_terms.json", "r") as f:
-            defined_terms = json.load(f)
-    except FileNotFoundError:
-        with open("./data/bm25_index.pkl", "rb") as f:
-            bm25 = pickle.load(f)
-        with open("./data/chunks.json", "r") as f:
-            all_chunks = json.load(f)
-        with open("./data/defined_terms.json", "r") as f:
-            defined_terms = json.load(f)
+    bm25, all_chunks, defined_terms = load_indices()
+    if not all_chunks:
+        return []
             
     # Resolve doc_filter against known doc_ids for server-side Qdrant filtering
     query_filter = None
@@ -106,8 +128,9 @@ def hybrid_retrieve(question: str, doc_filter: str = None, top_k: int = 15):
     
     # Inject defined terms
     injected_cids = set()
+    combined_text_lower = combined_text.lower()
     for dt in defined_terms:
-        if dt["term"] in combined_text and dt["chunk_id"] not in top_chunk_indices:
+        if dt["term"].lower() in combined_text_lower and dt["chunk_id"] not in top_chunk_indices:
             injected_cids.add(dt["chunk_id"])
             
     # Simple cross-ref: "Section X.Y"

@@ -47,6 +47,29 @@ def get_embedding(text: str) -> list[float]:
                 raise e
 
 def embed_batch(sentences: list[str]) -> list[list[float]]:
+    if not sentences:
+        return []
+    gateway_url = os.getenv("AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh/v1")
+    key = os.getenv("AI_GATEWAY_KEY", "")
+    model = os.getenv("EMBEDDING_MODEL", "openai/text-embedding-3-small")
+    
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "input": sentences,
+        "model": model
+    }
+    try:
+        response = httpx.post(f"{gateway_url}/embeddings", headers=headers, json=payload, timeout=30.0)
+        if response.status_code == 200:
+            data = response.json().get("data", [])
+            data = sorted(data, key=lambda x: x["index"])
+            return [item["embedding"] for item in data]
+    except Exception as e:
+        print(f"Batch embedding failed: {e}")
+    # Fallback to sequential if batch fails
     return [get_embedding(s) for s in sentences]
 
 def cosine_sim(a: list[float], b: list[float]) -> float:
@@ -90,26 +113,10 @@ def chunk_document(path: str, doc_id: str) -> list[dict]:
                     print(f"OCR fallback failed: {e}")
                 continue
                 
-            # Column-awareness: Adaptive clustering by x0
-            valid_lines = [l for l in extracted_lines if l["chars"]]
-            valid_lines.sort(key=lambda l: l["x0"])
-            
-            columns = []
-            if valid_lines:
-                current_col = [valid_lines[0]]
-                # Use a 100-point gap threshold to distinguish columns from mere paragraph indentations
-                for line in valid_lines[1:]:
-                    if line["x0"] - current_col[-1]["x0"] > 100:
-                        columns.append(current_col)
-                        current_col = [line]
-                    else:
-                        current_col.append(line)
-                columns.append(current_col)
-                
-            ordered_lines = []
-            for col in columns:
-                col.sort(key=lambda l: l["top"])
-                ordered_lines.extend(col)
+            valid_lines = [l for l in extracted_lines if l.get("chars")]
+            # Sort in natural top-to-bottom reading order
+            valid_lines.sort(key=lambda l: l["top"])
+            ordered_lines = valid_lines
             
             for line in ordered_lines:
                 
@@ -224,6 +231,20 @@ def chunk_document(path: str, doc_id: str) -> list[dict]:
             if len(prev_id) < len(curr_id) and curr_id.startswith(prev_id):
                 return headings[prev_idx]["text"]
         return headings[curr_idx - 1]["text"]
+
+    # Include preamble chunk if text exists before first heading
+    if headings and headings[0]["line_idx"] > 0:
+        preamble_lines = lines_data[0:headings[0]["line_idx"]]
+        preamble_text = " ".join([l["text"] for l in preamble_lines]).strip()
+        if preamble_text:
+            chunks.append({
+                "doc_id": doc_id,
+                "section_id": "Preamble",
+                "section_title": "Preamble and Recitals",
+                "parent_section": None,
+                "page_number": preamble_lines[0]["page_number"],
+                "text": preamble_text
+            })
 
     # Normal Heading-based splitting
     for i in range(len(headings)):
