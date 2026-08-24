@@ -8,6 +8,41 @@ from .chunking import chunk_document, embed_batch
 from .defined_terms import build_defined_terms_index
 import glob
 
+import httpx
+
+def summarize_contract(doc_id: str, sample_text: str) -> str:
+    gateway_url = os.getenv("AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh/v1")
+    key = os.getenv("AI_GATEWAY_KEY", "")
+    model = os.getenv("GENERATION_MODEL", "openai/gpt-4o-mini")
+    
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json"
+    }
+    
+    prompt = (
+        f"Contract Document ID: {doc_id}\n\n"
+        f"Introductory Excerpt:\n{sample_text[:2500]}\n\n"
+        "Task: Summarize the contracting parties and the core commercial purpose of this contract in exactly one clear, factual sentence."
+    )
+    
+    try:
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": "You are a legal analyst. Output only the one-sentence summary without preamble."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.0
+        }
+        res = httpx.post(f"{gateway_url}/chat/completions", headers=headers, json=payload, timeout=20.0)
+        if res.status_code == 200:
+            return res.json()["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"Summary generation failed for {doc_id}: {e}")
+    
+    return f"Legal contract concerning {doc_id}."
+
 def ingest_all():
     qdrant_url = os.getenv("QDRANT_URL", "http://qdrant:6333")
     client = QdrantClient(url=qdrant_url)
@@ -25,6 +60,7 @@ def ingest_all():
         
     all_chunks = []
     all_defined_terms = []
+    doc_catalog = []
     
     # Process all PDFs in data/contracts
     import fnmatch
@@ -40,6 +76,11 @@ def ingest_all():
         # Chunking handles parsing internally in our simplified structure
         chunks = chunk_document(path, doc_id)
         
+        # Generate 1-sentence contract description from preamble chunks
+        intro_text = " ".join([c["text"] for c in chunks[:3]])
+        description = summarize_contract(doc_id, intro_text)
+        doc_catalog.append({"doc_id": doc_id, "description": description})
+        
         # Build defined terms
         full_text = " ".join([c["text"] for c in chunks])
         terms = build_defined_terms_index(doc_id, full_text, chunks)
@@ -49,7 +90,6 @@ def ingest_all():
             t["chunk_id"] += start_idx
             
         all_defined_terms.extend(terms)
-        
         all_chunks.extend(chunks)
         
     if not all_chunks:
@@ -104,6 +144,8 @@ def ingest_all():
             json.dump(all_chunks, f)
         with open("/app/data/defined_terms.json", "w") as f:
             json.dump(all_defined_terms, f)
+        with open("/app/data/documents.json", "w") as f:
+            json.dump(doc_catalog, f)
     except FileNotFoundError:
         with open("./data/bm25_index.pkl", "wb") as f:
             pickle.dump(bm25, f)
@@ -111,6 +153,8 @@ def ingest_all():
             json.dump(all_chunks, f)
         with open("./data/defined_terms.json", "w") as f:
             json.dump(all_defined_terms, f)
+        with open("./data/documents.json", "w") as f:
+            json.dump(doc_catalog, f)
             
     print("Ingestion complete.")
     return True

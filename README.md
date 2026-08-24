@@ -12,11 +12,13 @@ flowchart TD
         PDF["PDF Contracts<br><i>data/contracts/</i>"] --> Parser["Multi-Tier Parser<br>(pdfplumber + OCR)"]
         Parser --> Chunking["Structural Chunking<br>(~400 words + Headings)"]
         Chunking --> Terms["Defined-Terms Extractor"]
+        Chunking --> Summarizer["Dynamic Contract Summarizer<br>(Preamble LLM Analysis)"]
         Chunking --> DenseEmbed["Dense Embeddings<br>(OpenAI text-embedding-3-small)"]
         Chunking --> SparseIndex["Sparse Indexer<br>(Okapi BM25)"]
         DenseEmbed --> Qdrant[("Qdrant Vector Store<br>(Dense ANN)")]
         SparseIndex --> BM25File[("BM25 Index File<br>(on-disk)")]
         Terms --> TermsFile[("Defined Terms Index<br>(JSON lookup)")]
+        Summarizer --> DocsCatalog[("Document Catalog<br>(documents.json)")]
     end
 
     subgraph Retrieval ["2. Hybrid Retrieval Engine"]
@@ -44,7 +46,7 @@ flowchart TD
     classDef storage fill:#e9ecef,stroke:#6c757d,stroke-width:1.5px,color:#212529;
     classDef accent fill:#e7f5ff,stroke:#1c7ed6,stroke-width:1.5px,color:#1864ab;
     class Scoper,RRF,LLMGen,FinalResponse accent;
-    class Qdrant,BM25File,TermsFile storage;
+    class Qdrant,BM25File,TermsFile,DocsCatalog storage;
 ```
 
 ---
@@ -54,6 +56,7 @@ flowchart TD
 | Capability | Technical Mechanism | Benefit |
 | :--- | :--- | :--- |
 | **Convention-Agnostic Parsing** | Multi-tier detection (Layout $\rightarrow$ Regex capture groups $\rightarrow$ Semantic drop) | Parses Roman articles (`Article XV`), decimal sections, and subclauses across any contract. |
+| **Dynamic Document Summarization** | Ingest-time preamble analysis (parties, recitals, commercial scope) | Dynamically synthesizes 1-sentence contract summaries cached in metadata with zero query latency. |
 | **Server-Side Hybrid Retrieval** | Dense vector search (Qdrant) + Sparse lexical (BM25) fused via RRF | Captures semantic intent without losing exact legal jargon, party names, or section numbers. |
 | **Cross-Reference Resolution** | Automated scanning for defined terms and `Section X.Y` pointers | Eliminates semantic gaps by auto-injecting referenced definitions into the context window. |
 | **Triple-Layer Guardrails** | Segmented fuzzy quote check + LLM claim entailment + numeric drift filter | Guarantees zero hallucinations; validates quotes with `...` and rejects invented figures. |
@@ -120,7 +123,53 @@ docker compose up --build
 
 ## API Reference
 
-### Ingest Documents
+### 1. List Ingested Documents (`GET /documents`)
+Returns a list of all indexed canonical document IDs along with **dynamically generated one-sentence contract summaries** (synthesized by the LLM from each contract's preamble during ingestion and cached with zero query latency). Users can reference these to easily identify agreements and supply valid `doc_filter` substrings for scoped queries.
+```bash
+curl http://localhost:8000/documents
+```
+**Sample Response:**
+```json
+{
+  "documents": [
+    {
+      "doc_id": "ACCELERATEDTECHNOLOGIESHOLDINGCORP_04_24_2003-EX-10.13-JOINT VENTURE AGREEMENT.PDF",
+      "description": "Joint venture agreement between Collectible Concepts Group and Pivotal Self Service Tech to manufacture and market MightyCell batteries."
+    },
+    {
+      "doc_id": "BellringBrandsInc_20190920_S-1_EX-10.12_11817081_EX-10.12_Manufacturing Agreement1.pdf",
+      "description": "Manufacturing agreement between Stremicks Heritage Foods and Premier Nutrition for processing and packaging ready-to-drink beverages."
+    },
+    {
+      "doc_id": "Freecook_20180605_S-1_EX-10.3_11233807_EX-10.3_Hosting Agreement.pdf",
+      "description": "Website hosting and infrastructure maintenance agreement between Freecook and Mitchell's Web Advance PLC."
+    },
+    {
+      "doc_id": "MorganStanleyDirectLendingFund_20191119_10-12GA_EX-10.5_11898508_EX-10.5_Trademark License Agreement.pdf",
+      "description": "Trademark license agreement granting Morgan Stanley Direct Lending Fund non-exclusive rights to use the Morgan Stanley brand name."
+    },
+    {
+      "doc_id": "PenntexMidstreamPartnersLp_20150416_S-1A_EX-10.4_9042833_EX-10.4_Transportation Agreement.pdf",
+      "description": "Gas transportation agreement between PennTex North Louisiana Lateral and Customer covering firm natural gas gathering and delivery services."
+    }
+  ]
+}
+```
+
+#### Determining `doc_filter` from the Document Catalog
+The `doc_filter` parameter in `POST /query` supports case-insensitive substring matching. You can pick any distinctive keyword from the returned `doc_id` or description:
+
+| Target Document | Matching `doc_filter` Examples |
+| :--- | :--- |
+| **Joint Venture Agreement** (`ACCELERATEDTECHNOLOGIES...`) | `"Joint Venture"`, `"Accelerated"`, `"MightyCell"` |
+| **Manufacturing Agreement** (`BellringBrandsInc...`) | `"Bellring"`, `"Manufacturing"`, `"Heritage"` |
+| **Hosting Agreement** (`Freecook...`) | `"Freecook"`, `"Hosting"`, `"Advance"` |
+| **Trademark License** (`MorganStanleyDirectLendingFund...`) | `"Morgan Stanley"`, `"Trademark"`, `"License"` |
+| **Transportation Agreement** (`PenntexMidstreamPartnersLp...`) | `"Penntex"`, `"Transportation"`, `"Midstream"` |
+
+---
+
+### 2. Ingest Documents (`POST /ingest`)
 Parses and builds the dense and sparse indices from `data/contracts/`.
 ```bash
 curl -X POST http://localhost:8000/ingest
@@ -128,7 +177,7 @@ curl -X POST http://localhost:8000/ingest
 
 ---
 
-### Query Contracts
+### 3. Query Contracts (`POST /query`)
 
 #### Scoped Single-Document Query:
 ```bash
@@ -169,7 +218,7 @@ curl -X POST http://localhost:8000/query \
 
 ---
 
-### Batch Faithfulness Evaluation
+### 4. Batch Faithfulness Evaluation (`POST /evaluate`)
 Executes the gold-standard 20-question legal benchmark and reports `ragas` faithfulness:
 ```bash
 curl -X POST http://localhost:8000/evaluate

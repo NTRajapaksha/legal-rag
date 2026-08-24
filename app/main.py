@@ -1,4 +1,5 @@
 import os
+import json
 from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
 from typing import Optional
@@ -20,6 +21,29 @@ class QueryResponse(BaseModel):
     insufficient_context: bool
     failed_citations: list[dict]
     is_unverified: bool
+
+@app.get("/documents")
+def list_documents():
+    docs_path = "/app/data/documents.json" if os.path.exists("/app/data/documents.json") else "./data/documents.json"
+    if os.path.exists(docs_path):
+        try:
+            with open(docs_path, "r", encoding="utf-8") as f:
+                return {"documents": json.load(f)}
+        except Exception:
+            pass
+            
+    # Fallback to chunk store if documents.json not generated yet
+    chunks_path = "/app/data/chunks.json" if os.path.exists("/app/data/chunks.json") else "./data/chunks.json"
+    if os.path.exists(chunks_path):
+        try:
+            with open(chunks_path, "r", encoding="utf-8") as f:
+                all_chunks = json.load(f)
+            doc_ids = sorted(list({c["doc_id"] for c in all_chunks if "doc_id" in c}))
+            return {"documents": [{"doc_id": d, "description": f"Legal agreement ({d})."} for d in doc_ids]}
+        except Exception as e:
+            return {"documents": [], "error": str(e)}
+            
+    return {"documents": []}
 
 @app.post("/ingest")
 def ingest():
